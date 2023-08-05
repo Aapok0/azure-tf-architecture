@@ -12,6 +12,8 @@ provider "azurerm" {
   features {}
 }
 
+data "azurerm_subscription" "current" {}
+
 module "webserver-homepage-prd" {
   source      = "./webserver"
   tags        = var.tags

@@ -11,10 +11,15 @@ variable "tags" {
     owner  = "Aapo Kokko"
   }
 }
+variable "location_list" {
+  type = string
+  description = "List of allowed locations."
+  default = "[\"northeurope\",\"norwayeast\",\"swedencentral\",\"westeurope\"]"
+}
 
 variable "location" {
   type        = string
-  description = "Default location of resources."
+  description = "Location of a resource."
   default     = "swedencentral"
 
   validation {
@@ -28,7 +33,7 @@ variable "location" {
 
 variable "location_abbreviation" {
   type        = map(string)
-  description = "Abbreviation of the default location of resources."
+  description = "Abbreviation of the location of a resource."
   default = {
     northeurope   = "ne"
     norwayeast    = "nwe"
