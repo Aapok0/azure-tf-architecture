@@ -32,16 +32,21 @@ resource "azurerm_subscription_policy_assignment" "allowed_locations_pa" {
 
 resource "azurerm_subscription_policy_assignment" "inherited_rg_tags_pa" {
   for_each             = var.inherited_rg_tags
-  name                 = "${data.azurerm_subscription.current.display_name}-inherited-rg-tags-pa"
+  name                 = "${data.azurerm_subscription.current.display_name}-inherited-rg-tags-pa-${each.value["id"]}"
   subscription_id      = data.azurerm_subscription.current.id
   policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/ea3f2387-9b95-492a-a190-fcdc54f7b070"
-  description          = "Tag (${each.value}) that is inherited from any resource group in ${data.azurerm_subscription.current.display_name}"
-  display_name         = "Tag (${each.value}) that is inherited from any resource group in ${data.azurerm_subscription.current.display_name}"
+  description          = "Tag (${each.value["key"]}) that is inherited from any resource group in ${data.azurerm_subscription.current.display_name}"
+  display_name         = "Tag (${each.value["key"]}) that is inherited from any resource group in ${data.azurerm_subscription.current.display_name}"
+  location             = var.location # Required, when identity is used
+
+  identity { # Required since the assignment creates a tag, if missing
+    type = "SystemAssigned"
+  }
 
   parameters = <<PARAMETERS
     {
       "tagName": {
-        "value": "${each.value}"
+        "value": "${each.value["key"]}"
       }
     }
   PARAMETERS

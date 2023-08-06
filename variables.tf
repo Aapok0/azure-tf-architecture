@@ -13,12 +13,21 @@ variable "tf_tags" {
 }
 
 variable "inherited_rg_tags" {
-  type        = map(string)
+  type        = map(any)
   description = "Tags that will always be inherited from resource groups."
   default = {
-    location    = "location"
-    environment = "environment"
-    project     = "project"
+    location = {
+      id  = "1"
+      key = "location"
+    }
+    environment = {
+      id  = "2"
+      key = "environment"
+    }
+    project = {
+      id  = "3"
+      key = "project"
+    }
   }
 }
 
