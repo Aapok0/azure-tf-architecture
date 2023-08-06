@@ -12,6 +12,12 @@ locals {
 
 # Resource groups
 
+resource "azurerm_resource_group" "nwatcher_rg" {
+  name     = "${var.location_abbreviation[var.location]}-nw-rg"
+  location = var.location
+  tags     = merge(var.tf_tags, { location = "${var.location}" })
+}
+
 resource "azurerm_resource_group" "webserver_rg" {
   name     = "${local.name_prefix}-rg"
   location = var.location
@@ -42,4 +48,20 @@ resource "azurerm_subnet" "webserver_snet" {
   resource_group_name  = azurerm_resource_group.webserver_rg.name
   virtual_network_name = azurerm_virtual_network.webserver_vnet.name
   address_prefixes     = ["10.0.0.0/28"]
+}
+
+# Compute resources
+
+
+
+# Monitoring
+
+resource "azurerm_network_watcher" "nwatcher" {
+  name                = "${var.location_abbreviation[var.location]}-nw"
+  location            = azurerm_resource_group.nwatcher_rg.location
+  resource_group_name = azurerm_resource_group.nwatcher_rg.name
+  tags = merge(var.tf_tags, {
+    location = "${var.location}"
+    service  = "network watcher"
+  })
 }

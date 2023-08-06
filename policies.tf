@@ -60,7 +60,7 @@ resource "azurerm_subscription_policy_assignment" "required_rg_tags_pa" {
   for_each             = merge(var.required_tags, var.required_rg_tags)
   name                 = "${data.azurerm_subscription.current.display_name}-required-rg-tags-pa-${each.value["id"]}"
   subscription_id      = data.azurerm_subscription.current.id
-  policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/8ce3da23-7156-49e4-b145-24f95f9dcb46"
+  policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/96670d01-0a4d-4649-9c89-2d3abc0a5025"
   description          = "Tag (${each.value["key"]}) required in all resource groups in ${data.azurerm_subscription.current.display_name}"
   display_name         = "Tag (${each.value["key"]}) required in all resource groups in ${data.azurerm_subscription.current.display_name}"
   location             = var.location # Required, when identity is used
