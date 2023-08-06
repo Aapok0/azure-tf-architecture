@@ -1,3 +1,5 @@
+# Location policy assignments
+
 resource "azurerm_subscription_policy_assignment" "allowed_rg_locations_pa" {
   name                 = "${data.azurerm_subscription.current.display_name}-allowed-rg-locations-pa"
   subscription_id      = data.azurerm_subscription.current.id
@@ -30,8 +32,54 @@ resource "azurerm_subscription_policy_assignment" "allowed_locations_pa" {
   PARAMETERS
 }
 
+# Tagging policy assignments:
+
+resource "azurerm_subscription_policy_assignment" "required_tags_pa" {
+  for_each             = var.required_tags
+  name                 = "${data.azurerm_subscription.current.display_name}-required-tags-pa-${each.value["id"]}"
+  subscription_id      = data.azurerm_subscription.current.id
+  policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/871b6d14-10aa-478d-b590-94f262ecfa99"
+  description          = "Tag (${each.value["key"]}) required in all resources in ${data.azurerm_subscription.current.display_name}"
+  display_name         = "Tag (${each.value["key"]}) required in all resources in ${data.azurerm_subscription.current.display_name}"
+  location             = var.location # Required, when identity is used
+
+  identity { # Required since the assignment creates a tag, if missing
+    type = "SystemAssigned"
+  }
+
+  parameters = <<PARAMETERS
+    {
+      "tagName": {
+        "value": "${each.value["key"]}"
+      }
+    }
+  PARAMETERS
+}
+
+resource "azurerm_subscription_policy_assignment" "required_rg_tags_pa" {
+  for_each             = merge(var.required_tags, var.required_rg_tags)
+  name                 = "${data.azurerm_subscription.current.display_name}-required-rg-tags-pa-${each.value["id"]}"
+  subscription_id      = data.azurerm_subscription.current.id
+  policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/8ce3da23-7156-49e4-b145-24f95f9dcb46"
+  description          = "Tag (${each.value["key"]}) required in all resource groups in ${data.azurerm_subscription.current.display_name}"
+  display_name         = "Tag (${each.value["key"]}) required in all resource groups in ${data.azurerm_subscription.current.display_name}"
+  location             = var.location # Required, when identity is used
+
+  identity { # Required since the assignment creates a tag, if missing
+    type = "SystemAssigned"
+  }
+
+  parameters = <<PARAMETERS
+    {
+      "tagName": {
+        "value": "${each.value["key"]}"
+      }
+    }
+  PARAMETERS
+}
+
 resource "azurerm_subscription_policy_assignment" "inherited_rg_tags_pa" {
-  for_each             = var.inherited_rg_tags
+  for_each             = var.required_rg_tags
   name                 = "${data.azurerm_subscription.current.display_name}-inherited-rg-tags-pa-${each.value["id"]}"
   subscription_id      = data.azurerm_subscription.current.id
   policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/ea3f2387-9b95-492a-a190-fcdc54f7b070"

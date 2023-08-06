@@ -5,27 +5,38 @@ variable "contact_email" {
 
 variable "tf_tags" {
   type        = map(string)
-  description = "Default tags to be added to all resource groups and resources."
+  description = "Default tags to be added to all resource groups and resources deployed from terraform."
   default = {
     source = "terraform"
     owner  = "Aapo Kokko"
   }
 }
 
-variable "inherited_rg_tags" {
+variable "required_tags" {
   type        = map(any)
-  description = "Tags that will always be inherited from resource groups."
+  description = "Tags that are required everywhere."
+  default = {
+    owner = {
+      id  = "own"
+      key = "owner"
+    }
+  }
+}
+
+variable "required_rg_tags" {
+  type        = map(any)
+  description = "Tags that are required in resource groups and inherited by resources."
   default = {
     location = {
-      id  = "1"
+      id  = "loc"
       key = "location"
     }
     environment = {
-      id  = "2"
+      id  = "env"
       key = "environment"
     }
     project = {
-      id  = "3"
+      id  = "pro"
       key = "project"
     }
   }

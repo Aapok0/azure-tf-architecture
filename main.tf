@@ -9,10 +9,14 @@ terraform {
 }
 
 provider "azurerm" {
-  features {}
+  features {} # Required even empty
 }
 
+# Already existing data from Azure
+
 data "azurerm_subscription" "current" {}
+
+# Modules
 
 module "webserver-homepage-prd" {
   source      = "./webserver"
