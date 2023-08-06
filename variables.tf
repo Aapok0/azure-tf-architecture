@@ -3,18 +3,29 @@ variable "contact_email" {
   description = "Email contacted, when alerts are triggered."
 }
 
-variable "tags" {
+variable "tf_tags" {
   type        = map(string)
-  description = "Tags to be added to all resources."
+  description = "Default tags to be added to all resource groups and resources."
   default = {
     source = "terraform"
     owner  = "Aapo Kokko"
   }
 }
+
+variable "inherited_rg_tags" {
+  type        = map(string)
+  description = "Tags that will always be inherited from resource groups."
+  default = {
+    location    = "location"
+    environment = "environment"
+    project     = "project"
+  }
+}
+
 variable "location_list" {
-  type = string
+  type        = string
   description = "List of allowed locations."
-  default = "[\"northeurope\",\"norwayeast\",\"swedencentral\",\"westeurope\"]"
+  default     = "[\"northeurope\",\"norwayeast\",\"swedencentral\",\"westeurope\"]"
 }
 
 variable "location" {

@@ -1,6 +1,6 @@
-variable "tags" {
+variable "tf_tags" {
   type        = map(string)
-  description = "Tags to be added to all resources."
+  description = "Default tags to be added to all resource groups and resources."
 }
 
 variable "location" {
@@ -29,7 +29,7 @@ variable "location_abbreviation" {
 }
 
 variable "environment" {
-  type = string
+  type        = string
   description = "Environment for the deployed resources: dev, tst or prd."
 
   validation {
@@ -42,6 +42,6 @@ variable "environment" {
 }
 
 variable "project" {
-  type = string
+  type        = string
   description = "Name of the project webserver is created for."
 }

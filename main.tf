@@ -16,8 +16,8 @@ data "azurerm_subscription" "current" {}
 
 module "webserver-homepage-prd" {
   source      = "./webserver"
-  tags        = var.tags
   location    = "swedencentral"
   environment = "prd"
   project     = "homepage"
+  tf_tags     = var.tf_tags
 }
