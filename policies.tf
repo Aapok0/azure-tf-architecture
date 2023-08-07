@@ -43,10 +43,6 @@ resource "azurerm_subscription_policy_assignment" "required_tags_pa" {
   display_name         = "Tag (${each.value["key"]}) required in all resources in ${data.azurerm_subscription.current.display_name}"
   location             = var.location # Required, when identity is used
 
-  identity { # Required since the assignment creates a tag, if missing
-    type = "SystemAssigned"
-  }
-
   parameters = <<PARAMETERS
     {
       "tagName": {
@@ -64,10 +60,6 @@ resource "azurerm_subscription_policy_assignment" "required_rg_tags_pa" {
   description          = "Tag (${each.value["key"]}) required in all resource groups in ${data.azurerm_subscription.current.display_name}"
   display_name         = "Tag (${each.value["key"]}) required in all resource groups in ${data.azurerm_subscription.current.display_name}"
   location             = var.location # Required, when identity is used
-
-  identity { # Required since the assignment creates a tag, if missing
-    type = "SystemAssigned"
-  }
 
   parameters = <<PARAMETERS
     {
@@ -111,7 +103,7 @@ resource "azurerm_subscription_policy_assignment" "allowed_vm_sku_pa" {
 
   parameters = <<PARAMETERS
     {
-      "listOfAllowedLocations": {
+      "listOfAllowedSKUs": {
         "value": ${var.sku_list}
       }
     }

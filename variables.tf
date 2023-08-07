@@ -45,7 +45,7 @@ variable "required_rg_tags" {
 variable "location_list" {
   type        = string
   description = "List of allowed locations."
-  default     = "[\"northeurope\",\"norwayeast\",\"swedencentral\",\"westeurope\"]"
+  default     = "[\"northeurope\", \"norwayeast\", \"swedencentral\", \"westeurope\"]"
 }
 
 variable "location" {
@@ -76,5 +76,5 @@ variable "location_abbreviation" {
 variable "sku_list" {
   type        = string
   description = "List of allowed vm skus."
-  default     = "[\"Standard_B1ls\",\"Standard_B1s\",\"Standard_B1ms\"]"
+  default     = "[\"Standard_B1ls\", \"Standard_B1s\", \"Standard_B1ms\"]"
 }

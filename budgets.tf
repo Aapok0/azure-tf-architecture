@@ -15,13 +15,9 @@ resource "azurerm_consumption_budget_subscription" "budget" {
     threshold = 80.0
     operator  = "EqualTo"
 
-    contact_emails = [
-      var.contact_email,
-    ]
+    contact_emails = [var.contact_email]
 
-    contact_roles = [
-      "Owner",
-    ]
+    contact_roles = ["Owner"]
   }
 
   notification {
@@ -30,12 +26,8 @@ resource "azurerm_consumption_budget_subscription" "budget" {
     operator       = "GreaterThan"
     threshold_type = "Forecasted"
 
-    contact_emails = [
-      var.contact_email,
-    ]
+    contact_emails = [var.contact_email]
 
-    contact_roles = [
-      "Owner",
-    ]
+    contact_roles = ["Owner"]
   }
 }

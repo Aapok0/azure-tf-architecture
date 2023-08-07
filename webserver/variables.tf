@@ -37,7 +37,7 @@ variable "environment" {
       ["dev", "tst", "prd"],
       var.environment
     )
-    error_message = "Allowed locations are northeurope, norwayeast, swedencentral and westeurope."
+    error_message = "Allowed environments are dev, tst and prd."
   }
 }
 
