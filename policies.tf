@@ -5,7 +5,7 @@ resource "azurerm_subscription_policy_assignment" "allowed_rg_locations_pa" {
   subscription_id      = data.azurerm_subscription.current.id
   policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/e765b5de-1225-4ba3-bd56-1ac6695af988"
   description          = "Allowed resource group locations in subscription ${data.azurerm_subscription.current.display_name}"
-  display_name         = "Allowed resource group locations in ${data.azurerm_subscription.current.display_name}"
+  display_name         = "Allowed resource group locations in subscription ${data.azurerm_subscription.current.display_name}"
 
   parameters = <<PARAMETERS
     {
@@ -21,7 +21,7 @@ resource "azurerm_subscription_policy_assignment" "allowed_locations_pa" {
   subscription_id      = data.azurerm_subscription.current.id
   policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c"
   description          = "Allowed resource locations in subscription ${data.azurerm_subscription.current.display_name}"
-  display_name         = "Allowed resource locations in ${data.azurerm_subscription.current.display_name}"
+  display_name         = "Allowed resource locations in subscription ${data.azurerm_subscription.current.display_name}"
 
   parameters = <<PARAMETERS
     {
@@ -95,6 +95,24 @@ resource "azurerm_subscription_policy_assignment" "inherited_rg_tags_pa" {
     {
       "tagName": {
         "value": "${each.value["key"]}"
+      }
+    }
+  PARAMETERS
+}
+
+# Allowed SKUs
+
+resource "azurerm_subscription_policy_assignment" "allowed_vm_sku_pa" {
+  name                 = "${data.azurerm_subscription.current.display_name}-allowed-vm-sku-pa"
+  subscription_id      = data.azurerm_subscription.current.id
+  policy_definition_id = "/providers/Microsoft.Authorization/policyDefinitions/cccc23c7-8427-4f53-ad12-b6a63eb452b3"
+  description          = "Allowed virtual machine SKUs in subscription ${data.azurerm_subscription.current.display_name}"
+  display_name         = "Allowed virtual machine SKUs in subscription ${data.azurerm_subscription.current.display_name}"
+
+  parameters = <<PARAMETERS
+    {
+      "listOfAllowedLocations": {
+        "value": ${var.sku_list}
       }
     }
   PARAMETERS

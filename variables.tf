@@ -1,4 +1,4 @@
-variable "contact_email" {
+variable "contact_email" { # Sensitive information -> define in a tfvars file
   type        = string
   description = "Email contacted, when alerts are triggered."
 }
@@ -71,4 +71,10 @@ variable "location_abbreviation" {
     swedencentral = "sdc"
     westeurope    = "we"
   }
+}
+
+variable "sku_list" {
+  type        = string
+  description = "List of allowed vm skus."
+  default     = "[\"Standard_B1ls\",\"Standard_B1s\",\"Standard_B1ms\"]"
 }

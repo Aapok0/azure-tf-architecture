@@ -52,7 +52,65 @@ resource "azurerm_subnet" "webserver_snet" {
 
 # Compute resources
 
+resource "azurerm_public_ip" "webserver_public_ip" {
+  name                = "${local.name_prefix}-webserver-public-ip"
+  location            = azurerm_resource_group.webserver_rg.location
+  resource_group_name = azurerm_resource_group.webserver_rg.name
+  allocation_method   = "Static"
+}
 
+resource "azurerm_network_interface" "webserver_nic" {
+  name                = "${local.name_prefix}-webserver-nic"
+  location            = azurerm_resource_group.webserver_rg.location
+  resource_group_name = azurerm_resource_group.webserver_rg.name
+  tags                = merge(var.tf_tags, local.tags)
+
+  ip_configuration {
+    name                          = "public"
+    subnet_id                     = azurerm_subnet.webserver_snet.id
+    private_ip_address_allocation = "Static"
+    public_ip_address_id          = azurerm_public_ip.webserver_public_ip.id
+  }
+}
+
+resource "random_password" "admin_pass" {
+  length           = 16
+  min_lower        = 1
+  min_upper        = 1
+  min_numeric      = 1
+  min_special      = 1
+  special          = true
+  override_special = "!#$%&*()-_=+[]{}<>:?"
+}
+
+resource "azurerm_linux_virtual_machine" "webserver_vm" {
+  name                = "${local.name_prefix}-webserver-vm"
+  resource_group_name = azurerm_resource_group.webserver_rg.name
+  location            = azurerm_resource_group.webserver_rg.location
+  size                = var.vm_sku
+  admin_username      = var.admin
+  admin_password      = random_password.admin_pass.result
+  network_interface_ids = [
+    azurerm_network_interface.webserver_nic.id,
+  ]
+
+  admin_ssh_key {
+    username   = var.admin
+    public_key = file("~/.ssh/id_rsa.pub")
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts"
+    version   = "latest"
+  }
+}
 
 # Monitoring
 
