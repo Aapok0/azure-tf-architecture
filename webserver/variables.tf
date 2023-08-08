@@ -1,3 +1,13 @@
+variable "admin_user" { # Sensitive information -> define name in a tfvars file
+  type        = string
+  description = "Username for the root user in a virtual machine."
+}
+
+variable "ssh_pubkey_path" { # Sensitive information -> define in a tfvars file
+  type        = string
+  description = "Path to ssh public key to be uploaded to virtual machine for secure access."
+}
+
 variable "tf_tags" {
   type        = map(string)
   description = "Default tags to be added to all resource groups and resources."
@@ -58,10 +68,4 @@ variable "vm_sku" {
     )
     error_message = "Allowed virtual machine SKUs are Standard_B1ls, Standard_B1s and Standard_B1ms."
   }
-}
-
-variable "admin" { # Sensitive information -> define real name in a tfvars file
-  type        = string
-  description = "Username for the root user in a virtual machine."
-  default     = "azureadmin"
 }

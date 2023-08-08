@@ -3,6 +3,16 @@ variable "contact_email" { # Sensitive information -> define in a tfvars file
   description = "Email contacted, when alerts are triggered."
 }
 
+variable "admin_user" { # Sensitive information -> define in a tfvars file
+  type        = string
+  description = "Username for the root user in a virtual machine."
+}
+
+variable "ssh_pubkey_path" { # Sensitive information -> define in a tfvars file
+  type        = string
+  description = "Path to ssh public key to be uploaded to virtual machine for secure access."
+}
+
 variable "tf_tags" {
   type        = map(string)
   description = "Default tags to be added to all resource groups and resources deployed from terraform."

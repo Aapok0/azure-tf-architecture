@@ -83,13 +83,13 @@ resource "azurerm_linux_virtual_machine" "webserver_vm" {
   resource_group_name   = azurerm_resource_group.webserver_rg.name
   location              = azurerm_resource_group.webserver_rg.location
   size                  = var.vm_sku
-  admin_username        = var.admin
+  admin_username        = var.admin_user
   admin_password        = random_password.admin_pass.result
   network_interface_ids = [azurerm_network_interface.webserver_nic.id]
   tags                  = merge(var.tf_tags, local.tags)
 
   admin_ssh_key {
-    username   = var.admin
+    username   = var.admin_user
     public_key = file("~/.ssh/id_rsa.pub")
   }
 

@@ -6,7 +6,7 @@ resource "azurerm_resource_group" "nwatcher_rg" {
   tags = merge(var.tf_tags, {
     location    = "${var.location}"
     environment = "all"
-    project     = "none"
+    project     = "all"
   })
 }
 
