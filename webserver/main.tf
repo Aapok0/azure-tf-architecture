@@ -90,10 +90,11 @@ resource "azurerm_linux_virtual_machine" "webserver_vm" {
 
   admin_ssh_key {
     username   = var.admin_user
-    public_key = file("~/.ssh/id_rsa.pub")
+    public_key = file(var.ssh_pubkey_path)
   }
 
   os_disk {
+    name                 = "${local.name_prefix}-webserver-vm-osdisk"
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }
