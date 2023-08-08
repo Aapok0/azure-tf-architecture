@@ -1,12 +1,12 @@
 output "webserver_private_ip_out" {
-  value = azurerm_linux_virtual_machine.webserver_vm.private_ip_address
+  value = "${azurerm_linux_virtual_machine.webserver_vm.name}: ${azurerm_linux_virtual_machine.webserver_vm.private_ip_address}"
 }
 
 output "webserver_public_ip_out" {
-  value = azurerm_linux_virtual_machine.webserver_vm.public_ip_address
+  value = "${azurerm_linux_virtual_machine.webserver_vm.name}: ${azurerm_linux_virtual_machine.webserver_vm.public_ip_address}"
 }
 
 output "admin_pass_out" {
   sensitive = true
-  value     = azurerm_linux_virtual_machine.webserver_vm.admin_password
+  value     = "${azurerm_linux_virtual_machine.webserver_vm.name}: ${azurerm_linux_virtual_machine.webserver_vm.admin_password}"
 }

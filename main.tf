@@ -6,6 +6,7 @@ data "azurerm_subscription" "current" {}
 
 module "webserver_homepage_prd" {
   source          = "./webserver"
+  dev_ip_range    = var.dev_ip_range
   admin_user      = var.admin_user
   ssh_pubkey_path = var.ssh_pubkey_path
   tf_tags         = var.tf_tags

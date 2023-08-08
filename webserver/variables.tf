@@ -1,3 +1,8 @@
+variable "dev_ip_range" { # Sensitive information -> define in a tfvars file
+  type        = string
+  description = "IP range for SSH access to virtual machines."
+}
+
 variable "admin_user" { # Sensitive information -> define name in a tfvars file
   type        = string
   description = "Username for the root user in a virtual machine."

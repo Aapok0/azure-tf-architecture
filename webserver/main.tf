@@ -18,12 +18,13 @@ resource "azurerm_resource_group" "webserver_rg" {
   tags     = merge(var.tf_tags, local.tags)
 }
 
-# Network security groups and their rules
+# Public IPs
 
-resource "azurerm_network_security_group" "webserver_nsg" {
-  name                = "${local.name_prefix}-nsg"
+resource "azurerm_public_ip" "webserver_public_ip" {
+  name                = "${local.name_prefix}-webserver-public-ip"
   location            = azurerm_resource_group.webserver_rg.location
   resource_group_name = azurerm_resource_group.webserver_rg.name
+  allocation_method   = "Static"
   tags                = merge(var.tf_tags, local.tags)
 }
 
@@ -44,15 +45,45 @@ resource "azurerm_subnet" "webserver_snet" {
   address_prefixes     = ["10.0.0.0/28"]
 }
 
-# Compute resources
+# Network security groups and their rules and associations
 
-resource "azurerm_public_ip" "webserver_public_ip" {
-  name                = "${local.name_prefix}-webserver-public-ip"
+resource "azurerm_network_security_group" "webserver_nsg" {
+  name                = "${local.name_prefix}-nsg"
   location            = azurerm_resource_group.webserver_rg.location
   resource_group_name = azurerm_resource_group.webserver_rg.name
-  allocation_method   = "Static"
   tags                = merge(var.tf_tags, local.tags)
+
+  security_rule {
+    name                       = "AllowInternetInBound"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = "*"
+    source_port_range          = "*"
+    destination_address_prefix = azurerm_public_ip.webserver_public_ip.ip_address
+    destination_port_ranges    = ["80", "443"]
+  }
+
+  security_rule {
+    name                       = "AllowSSHInBound"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = var.dev_ip_range
+    source_port_range          = "*"
+    destination_address_prefix = azurerm_public_ip.webserver_public_ip.ip_address
+    destination_port_range     = "22"
+  }
 }
+
+resource "azurerm_subnet_network_security_group_association" "webserver_nsg_assoc" {
+  subnet_id                 = azurerm_subnet.webserver_snet.id
+  network_security_group_id = azurerm_network_security_group.webserver_nsg.id
+}
+
+# Compute resources and their dependencies
 
 resource "azurerm_network_interface" "webserver_nic" {
   name                = "${local.name_prefix}-webserver-nic"
