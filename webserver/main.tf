@@ -61,7 +61,7 @@ resource "azurerm_network_security_group" "webserver_nsg" {
     protocol                   = "Tcp"
     source_address_prefix      = "*"
     source_port_range          = "*"
-    destination_address_prefix = azurerm_public_ip.webserver_public_ip.ip_address
+    destination_address_prefix = "*"
     destination_port_ranges    = ["80", "443"]
   }
 
@@ -71,9 +71,9 @@ resource "azurerm_network_security_group" "webserver_nsg" {
     direction                  = "Inbound"
     access                     = "Allow"
     protocol                   = "Tcp"
-    source_address_prefix      = var.dev_ip_range
+    source_address_prefixes    = var.ssh_addr_prefixes
     source_port_range          = "*"
-    destination_address_prefix = azurerm_public_ip.webserver_public_ip.ip_address
+    destination_address_prefix = "*"
     destination_port_range     = "22"
   }
 }
@@ -121,7 +121,7 @@ resource "azurerm_linux_virtual_machine" "webserver_vm" {
 
   admin_ssh_key {
     username   = var.admin_user
-    public_key = file(var.ssh_pubkey_path)
+    public_key = file("~/.ssh/id_rsa.pub")
   }
 
   os_disk {
@@ -135,5 +135,26 @@ resource "azurerm_linux_virtual_machine" "webserver_vm" {
     offer     = "0001-com-ubuntu-server-jammy"
     sku       = "22_04-lts"
     version   = "latest"
+  }
+
+  provisioner "local-exec" {
+    command = templatefile("${path.module}/ssh-config-apply.tpl", {
+      name         = self.name
+      host         = "${self.tags.project}-web"
+      ip           = self.public_ip_address
+      user         = self.admin_username
+      identityfile = "~/.ssh/id_rsa"
+    })
+    interpreter = ["bash", "-c"]
+    on_failure  = continue
+  }
+
+  provisioner "local-exec" {
+    when = destroy
+    command = templatefile("${path.module}/ssh-config-destroy.tpl", {
+      name = self.name
+    })
+    interpreter = ["bash", "-c"]
+    on_failure  = continue
   }
 }

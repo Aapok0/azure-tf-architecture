@@ -5,12 +5,17 @@ data "azurerm_subscription" "current" {}
 # Modules
 
 module "webserver_homepage_prd" {
-  source          = "./webserver"
-  dev_ip_range    = var.dev_ip_range
-  admin_user      = var.admin_user
-  ssh_pubkey_path = var.ssh_pubkey_path
-  tf_tags         = var.tf_tags
-  location        = "swedencentral"
-  environment     = "prd"
-  project         = "homepage"
+  source = "./webserver"
+
+  # General settings
+  location    = "swedencentral"
+  environment = "prd"
+  project     = "homepage"
+
+  # Access to virtual machines
+  ssh_addr_prefixes = var.ssh_addr_prefixes
+  admin_user        = var.admin_user
+
+  # Tags for everything in this architecture deployed with Terraform
+  tf_tags = var.tf_tags
 }

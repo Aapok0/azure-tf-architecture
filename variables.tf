@@ -3,19 +3,14 @@ variable "contact_email" { # Sensitive information -> define in a tfvars file
   description = "Email contacted, when alerts are triggered."
 }
 
-variable "dev_ip_range" { # Sensitive information -> define in a tfvars file
-  type        = string
+variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
+  type        = list(any)
   description = "IP range for SSH access to virtual machines."
 }
 
 variable "admin_user" { # Sensitive information -> define in a tfvars file
   type        = string
   description = "Username for the root user in a virtual machine."
-}
-
-variable "ssh_pubkey_path" { # Sensitive information -> define in a tfvars file
-  type        = string
-  description = "Path to ssh public key to be uploaded to virtual machine for secure access."
 }
 
 variable "tf_tags" {
