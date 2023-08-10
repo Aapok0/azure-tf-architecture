@@ -69,3 +69,13 @@ variable "vm_sku" {
     error_message = "Allowed virtual machine SKUs are Standard_B1ls, Standard_B1s and Standard_B1ms."
   }
 }
+
+variable "data_disk" {
+  type        = bool
+  description = "Whether data disk is created for virtual machine or not."
+}
+
+variable "data_disk_size" {
+  type        = number
+  description = "Size of data disk in gigabytes."
+}

@@ -158,3 +158,24 @@ resource "azurerm_linux_virtual_machine" "webserver_vm" {
     on_failure  = continue
   }
 }
+
+# Data disks and their attachments
+
+resource "azurerm_managed_disk" "webserver_vm_disk" {
+  count                = var.data_disk ? 1 : 0
+  name                 = "${local.name_prefix}-webserver-vm-disk"
+  location             = azurerm_resource_group.webserver_rg.location
+  resource_group_name  = azurerm_resource_group.webserver_rg.name
+  storage_account_type = "Standard_LRS"
+  create_option        = "Empty"
+  disk_size_gb         = var.data_disk_size
+  tags                 = merge(var.tf_tags, local.tags)
+}
+
+resource "azurerm_virtual_machine_data_disk_attachment" "webserver_disk_att" {
+  count              = var.data_disk ? 1 : 0
+  managed_disk_id    = azurerm_managed_disk.webserver_vm_disk[count.index].id
+  virtual_machine_id = azurerm_linux_virtual_machine.webserver_vm.id
+  lun                = "1"
+  caching            = "ReadWrite"
+}
