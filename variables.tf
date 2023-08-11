@@ -54,13 +54,13 @@ variable "required_rg_tags" {
 
 variable "location_list" {
   type        = string
-  description = "List of allowed locations."
+  description = "List of allowed Azure regions."
   default     = "[\"northeurope\", \"norwayeast\", \"swedencentral\", \"westeurope\"]"
 }
 
 variable "location" {
   type        = string
-  description = "Location of a resource."
+  description = "Azure region resource group or resource is located in."
   default     = "swedencentral"
 
   validation {

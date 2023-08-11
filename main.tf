@@ -4,24 +4,36 @@ data "azurerm_subscription" "current" {}
 
 # General resources
 
+## Budget - subscription
 module "sub_budget" {
-  source          = "./general/budget"
+  source = "./general/budget"
 
-  scope           = "sub"
-  id              = data.azurerm_subscription.current.id
-  name            = "${data.azurerm_subscription.current.display_name}-budget"
+  scope = "sub"
+  id    = data.azurerm_subscription.current.id
+  name  = "${data.azurerm_subscription.current.display_name}-budget"
 
-  amount          = 10
-  time_grain      = "Monthly"
-  start_date      = "2023-08-01T00:00:00Z"
-  end_date        = "2025-08-01T00:00:00Z"
+  amount     = 10
+  time_grain = "Monthly"
+  start_date = "2023-08-01T00:00:00Z"
+  end_date   = "2025-08-01T00:00:00Z"
 
   threshold_alert = true
   threshold       = 75.0
   forecast_alert  = true
 
-  contact_emails  = var.contact_emails
-  contact_roles   = ["Owner"]
+  contact_emails = var.contact_emails
+  contact_roles  = ["Owner"]
+}
+
+## Network watcher - Sweden Central
+
+module "sdc-nwatcher" {
+  source = "./general/network-watcher"
+
+  name     = "${var.location_abbreviation[var.location]}-nwatcher"
+  location = var.location
+
+  tf_tags = var.tf_tags
 }
 
 # Projects
