@@ -72,7 +72,7 @@ variable "vm_sku" {
 
 variable "data_disk" {
   type        = bool
-  description = "Whether data disk is created for virtual machine or not."
+  description = "Whether data disk is created for virtual machine or not: true or false."
 }
 
 variable "data_disk_size" {

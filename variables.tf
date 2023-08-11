@@ -1,6 +1,6 @@
-variable "contact_email" { # Sensitive information -> define in a tfvars file
-  type        = string
-  description = "Email contacted, when alerts are triggered."
+variable "contact_emails" { # Sensitive information -> define in a tfvars file
+  type        = list(any)
+  description = "Emails contacted, when alerts are triggered."
 }
 
 variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
