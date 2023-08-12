@@ -1,12 +1,19 @@
-output "webserver_private_ip_out" {
-  value = "${azurerm_linux_virtual_machine.webserver_vm.name}: ${azurerm_linux_virtual_machine.webserver_vm.private_ip_address}"
+output "name_prefix" {
+  value = local.name_prefix
 }
 
-output "webserver_public_ip_out" {
-  value = "${azurerm_linux_virtual_machine.webserver_vm.name}: ${azurerm_linux_virtual_machine.webserver_vm.public_ip_address}"
+output "location" {
+  value = azurerm_resource_group.project_rg.location
 }
 
-output "admin_pass_out" {
-  sensitive = true
-  value     = "${azurerm_linux_virtual_machine.webserver_vm.name}: ${azurerm_linux_virtual_machine.webserver_vm.admin_password}"
+output "name" {
+  value = azurerm_resource_group.project_rg.name
+}
+
+output "subnets" {
+  value = azurerm_subnet.project_snet
+}
+
+output "tags" {
+  value = local.tags
 }

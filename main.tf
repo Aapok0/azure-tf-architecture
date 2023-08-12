@@ -2,7 +2,7 @@
 
 data "azurerm_subscription" "current" {}
 
-# General resources
+# Subscription scoped resources
 
 ## Budget - subscription
 module "sub_budget" {
@@ -26,9 +26,8 @@ module "sub_budget" {
 }
 
 ## Network watcher - Sweden Central
-
-module "sdc-nwatcher" {
-  source = "./general/network-watcher"
+module "sdc_nwatcher" {
+  source = "./general/network_watcher"
 
   name     = "${var.location_abbreviation[var.location]}-nwatcher"
   location = var.location
@@ -38,6 +37,9 @@ module "sdc-nwatcher" {
 
 # Projects
 
+## Homepage production
+
+### Base resources
 module "homepage_prd" {
   source = "./project"
 
@@ -46,14 +48,71 @@ module "homepage_prd" {
   environment = "prd"
   project     = "homepage"
 
-  # Access to virtual machines
-  ssh_addr_prefixes = var.ssh_addr_prefixes
-  admin_user        = var.admin_user
+  # Virtual network
+  virtual_network = ["10.0.0.0/26"]
+  subnets         = { subnet1 = ["10.0.0.0/28"] }
 
-  # Data disk
-  data_disk      = false
-  data_disk_size = 0 # GB
+  # Addresses for SSH access
+  ssh_addr_prefixes = var.ssh_addr_prefixes
 
   # Tags for everything in this architecture deployed with Terraform
   tf_tags = var.tf_tags
+}
+
+### Webserver
+module "webserver_vm" {
+  source = "./compute/virtual_machine"
+
+  name_prefix         = "${module.homepage_prd.name_prefix}-webserver"
+  location            = module.homepage_prd.location
+  resource_group_name = module.homepage_prd.name
+  subnet_id           = module.homepage_prd.subnets["subnet1"].id
+
+  vm_sku            = "Standard_B1ls"
+  admin_user        = var.admin_user
+  ssh_addr_prefixes = var.ssh_addr_prefixes
+
+  public_ip         = true
+  allocation_method = "Static"
+
+  data_disk      = false
+  data_disk_size = 0 # GB
+
+  tags = merge(var.tf_tags, module.homepage_prd.tags)
+}
+
+resource "azurerm_network_security_group" "webserver_nsg" {
+  name                = "${module.homepage_prd.name_prefix}-webserver-nsg"
+  location            = module.homepage_prd.location
+  resource_group_name = module.homepage_prd.name
+  tags                = merge(var.tf_tags, module.homepage_prd.tags)
+
+  security_rule {
+    name                       = "AllowSSHInBound"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefixes    = var.ssh_addr_prefixes
+    source_port_range          = "*"
+    destination_address_prefix = "*"
+    destination_port_range     = "22"
+  }
+
+  security_rule {
+    name                       = "AllowInternetInBound"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_address_prefix      = "*"
+    source_port_range          = "*"
+    destination_address_prefix = "*"
+    destination_port_ranges    = ["80", "443"]
+  }
+}
+
+resource "azurerm_network_interface_security_group_association" "webserver_nsg_assoc" {
+  network_interface_id      = module.webserver_vm.nic_id_out
+  network_security_group_id = azurerm_network_security_group.webserver_nsg.id
 }

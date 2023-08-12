@@ -1,21 +1,6 @@
-variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
-  type        = list(any)
-  description = "IP range for SSH access to virtual machines."
-}
-
-variable "admin_user" { # Sensitive information -> define name in a tfvars file
-  type        = string
-  description = "Username for the root user in a virtual machine."
-}
-
-variable "tf_tags" {
-  type        = map(string)
-  description = "Default tags to be added to all resource groups and resources."
-}
-
 variable "location" {
   type        = string
-  description = "Default location of resources."
+  description = "Azure region resource group or resource is located in."
   default     = "swedencentral"
 
   validation {
@@ -29,7 +14,7 @@ variable "location" {
 
 variable "location_abbreviation" {
   type        = map(string)
-  description = "Abbreviation of the default location of resources."
+  description = "Abbreviation of the Azure region."
   default = {
     northeurope   = "ne"
     norwayeast    = "nwe"
@@ -56,26 +41,22 @@ variable "project" {
   description = "Name of the project webserver is created for."
 }
 
-variable "vm_sku" {
-  type        = string
-  description = "Size of the virtual machine."
-  default     = "Standard_B1ls"
-
-  validation {
-    condition = contains(
-      ["Standard_B1ls", "Standard_B1s", "Standard_B1ms"],
-      var.vm_sku
-    )
-    error_message = "Allowed virtual machine SKUs are Standard_B1ls, Standard_B1s and Standard_B1ms."
-  }
+variable "virtual_network" {
+  type        = list(any)
+  description = "List of address spaces that are used in the virtual network in CIDR."
 }
 
-variable "data_disk" {
-  type        = bool
-  description = "Whether data disk is created for virtual machine or not: true or false."
+variable "subnets" {
+  type        = map(any)
+  description = "Map of address prefixes that are used in each subnet in CIDR."
 }
 
-variable "data_disk_size" {
-  type        = number
-  description = "Size of data disk in gigabytes."
+variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
+  type        = list(any)
+  description = "IP range for SSH access to virtual machines."
+}
+
+variable "tf_tags" {
+  type        = map(string)
+  description = "Default tags to be added to all resource groups and resources."
 }

@@ -3,14 +3,14 @@ variable "contact_emails" { # Sensitive information -> define in a tfvars file
   description = "Emails contacted, when alerts are triggered."
 }
 
-variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
-  type        = list(any)
-  description = "IP range for SSH access to virtual machines."
-}
-
 variable "admin_user" { # Sensitive information -> define in a tfvars file
   type        = string
   description = "Username for the root user in a virtual machine."
+}
+
+variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
+  type        = list(any)
+  description = "IP range for SSH access to virtual machines."
 }
 
 variable "tf_tags" {
@@ -74,7 +74,7 @@ variable "location" {
 
 variable "location_abbreviation" {
   type        = map(string)
-  description = "Abbreviation of the location of a resource."
+  description = "Abbreviation of the Azure region."
   default = {
     northeurope   = "ne"
     norwayeast    = "nwe"
