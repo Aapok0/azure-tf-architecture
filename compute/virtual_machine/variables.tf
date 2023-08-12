@@ -74,3 +74,8 @@ variable "tags" {
   type        = map(string)
   description = "Tags to be added to all resources in the module."
 }
+
+variable "service_tag" {
+  type        = map(string)
+  description = "Service tag that is added to the virtual machine."
+}

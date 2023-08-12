@@ -24,7 +24,7 @@ variable "tf_tags" {
 
 variable "required_tags" {
   type        = map(any)
-  description = "Tags that are required everywhere."
+  description = "Tags that are required in resources."
   default = {
     owner = {
       id  = "own"
@@ -35,7 +35,30 @@ variable "required_tags" {
 
 variable "required_rg_tags" {
   type        = map(any)
-  description = "Tags that are required in resource groups and inherited by resources."
+  description = "Tags that are required in resource groups."
+  default = {
+    owner = {
+      id  = "own"
+      key = "owner"
+    }
+    location = {
+      id  = "loc"
+      key = "location"
+    }
+    environment = {
+      id  = "env"
+      key = "environment"
+    }
+    project = {
+      id  = "pro"
+      key = "project"
+    }
+  }
+}
+
+variable "inherited_tags" {
+  type        = map(any)
+  description = "Tags that are inherited by resources from resource groups."
   default = {
     location = {
       id  = "loc"

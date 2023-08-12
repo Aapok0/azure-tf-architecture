@@ -11,9 +11,9 @@ variable "scope" {
   }
 }
 
-variable "id" {
+variable "scope_id" {
   type        = string
-  description = "ID for the chose scope of the budget."
+  description = "ID for the chosen scope of the budget."
 }
 
 variable "name" {

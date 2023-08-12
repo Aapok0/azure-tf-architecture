@@ -64,7 +64,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   admin_username        = var.admin_user
   admin_password        = random_password.admin_pass.result
   network_interface_ids = var.public_ip ? [azurerm_network_interface.vm_nic_public[0].id] : [azurerm_network_interface.vm_nic[0].id]
-  tags                  = var.tags
+  tags                  = merge(var.tags, var.service_tag)
 
   admin_ssh_key {
     username   = var.admin_user
