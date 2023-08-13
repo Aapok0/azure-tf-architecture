@@ -47,8 +47,8 @@ module "sub_allowed_locations" {
 
   # Scope of the policies
   scope      = "sub"
-  scope_name = data.azurerm_subscription.current.display_name
   scope_id   = data.azurerm_subscription.current.id
+  scope_name = data.azurerm_subscription.current.display_name
 
   # Locations
   location_list = var.location_list
@@ -60,8 +60,8 @@ module "sub_tags" {
 
   # Scope of the policies
   scope      = "sub"
-  scope_name = data.azurerm_subscription.current.display_name
   scope_id   = data.azurerm_subscription.current.id
+  scope_name = data.azurerm_subscription.current.display_name
   location   = var.location
 
   # Required in all resources
@@ -80,8 +80,8 @@ module "vm_sku" {
 
   # Scope of the policies
   scope      = "sub"
-  scope_name = data.azurerm_subscription.current.display_name
   scope_id   = data.azurerm_subscription.current.id
+  scope_name = data.azurerm_subscription.current.display_name
 
   # Sizes
   sku_list = var.sku_list
@@ -102,7 +102,7 @@ module "homepage_prd" {
 
   # Virtual network
   virtual_network = ["10.0.0.0/26"]
-  subnets         = { subnet1 = ["10.0.0.0/28"] }
+  subnets         = { "subnet1" = ["10.0.0.0/28"] }
 
   # Addresses for SSH access
   ssh_addr_prefixes = var.ssh_addr_prefixes
@@ -116,10 +116,10 @@ module "webserver_vm" {
   source = "./compute/virtual_machine"
 
   # Dependencies and info
-  name_prefix         = "${module.homepage_prd.name_prefix}-webserver"
-  location            = module.homepage_prd.location
-  resource_group_name = module.homepage_prd.name
-  subnet_id           = module.homepage_prd.subnets["subnet1"].id
+  name_prefix         = "${module.homepage_prd.name_prefix_out}-webserver"
+  location            = module.homepage_prd.rg_location_out
+  resource_group_name = module.homepage_prd.rg_name_out
+  subnet_id           = module.homepage_prd.subnets_out["subnet1"].id
 
   # Virtual machine size
   vm_sku = "Standard_B1ls"
@@ -137,7 +137,7 @@ module "webserver_vm" {
   data_disk_size = 0 # GB
 
   # Tags
-  tags        = merge(var.tf_tags, module.homepage_prd.tags)
+  tags        = merge(var.tf_tags, module.homepage_prd.tags_out)
   service_tag = { "service" = "nginx" }
 }
 

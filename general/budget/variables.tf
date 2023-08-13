@@ -28,14 +28,14 @@ variable "amount" {
 
 variable "time_grain" {
   type        = string
-  description = "Time frame budget limit is tracked in: BillingAnnual, BillingMonth, BillingQuarter, Annually, Monthly and Quarterly."
+  description = "Time frame budget limit is tracked in: BillingAnnual, BillingMonth, BillingQuarter, Annually, Monthly or Quarterly."
 
   validation {
     condition = contains(
       ["BillingAnnual", "BillingMonth", "BillingQuarter", "Annually", "Monthly", "Quarterly"],
       var.time_grain
     )
-    error_message = "Allowed time grains are BillingAnnual, BillingMonth, BillingQuarter, Annually, Monthly and Quarterly."
+    error_message = "Allowed time grains are BillingAnnual, BillingMonth, BillingQuarter, Annually, Monthly or Quarterly."
   }
 }
 

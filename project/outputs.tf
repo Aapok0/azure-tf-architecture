@@ -1,19 +1,19 @@
-output "name_prefix" {
+output "name_prefix_out" {
   value = local.name_prefix
 }
 
-output "location" {
+output "rg_location_out" {
   value = azurerm_resource_group.project_rg.location
 }
 
-output "name" {
+output "rg_name_out" {
   value = azurerm_resource_group.project_rg.name
 }
 
-output "subnets" {
+output "subnets_out" {
   value = azurerm_subnet.project_snet
 }
 
-output "tags" {
+output "tags_out" {
   value = local.tags
 }

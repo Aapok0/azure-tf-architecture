@@ -2,7 +2,7 @@
 
 The main purpose of this Terraform architecture is to deploy and manage the Azure resources I want to use for my personal projects. Currently main one is my homepage, which I want to host on a virtual machine with Nginx. At some point I will move on to using an app service or a container, but for now I want to work on my skills with Ansible and Nginx.
 
-The way I arranged the modules and wrote them is a compromise between of the needs of my project and wanting to write scalable code, that could fit into a larger architecture. Scalability and reusability could be improved in many ways, but I don't want to make things too complicated. This code still needs to serve my own purposes.
+The way I arranged the modules and wrote them is a compromise between of the needs of my project and wanting to write scalable code, that could fit into a larger architecture. Scalability and reusability could be improved in many ways, but I don't want to make things too complicated. This code still needs to serve my own purposes. For example, I have made some restrictions for the variables, which would need to be removed to make the code more reusable for others.
 
 ### Related repositories
 
@@ -62,6 +62,198 @@ admin_user        = "adminuser"
 ```
 
 ## How to use
+
+### Calling the modules
+
+Modules are to generally be called in the **main.tf** or other **.tf** files in the root module. Source of the modules will reflect that. The path needs to be changed, if the modules are called elsewhere.
+
+#### General
+
+Budget:
+
+```terraform
+data "azurerm_subscription" "current" {} # Existing subscription for this example to work
+
+module "budget_example" {
+  source = "./general/budget"
+
+  # Scope of the budget
+  scope    = "sub" # rg for resource group, sub for subscription or mg for management group
+  scope_id = data.azurerm_subscription.current.id # rg or sub id
+  name     = "${data.azurerm_subscription.current.display_name}-budget" # Name for the resource
+
+  # General settings
+  amount     = 10 # Budget limit in dollars
+  time_grain = "Monthly" # BillingAnnual, BillingMonth, BillingQuarter, Annually, Monthly or Quarterly
+  start_date = "2023-08-01T00:00:00Z" # Needs to be in this format
+  end_date   = "2025-08-01T00:00:00Z" # Needs to be in this format
+
+  # Notification settings
+  threshold_alert = true # Whether threshold alert is enabled
+  threshold       = 75.0 # Threshold percentage for alert
+  forecast_alert  = true # Whether forecast alert for exceeding 100% is enabled
+  contact_emails  = var.contact_emails # List of emails that are alerted (can be sensitive so better to use variable)
+  contact_roles   = ["Owner"] # Roles that are alerted
+}
+```
+
+Network Watcher:
+
+```terraform
+data "azurerm_subscription" "current" {} # Existing subscription for this example to work
+
+module "nw_example" {
+  source = "./general/network_watcher"
+
+  # Name and location
+  name     = "we-nwatcher" # Name for the resource
+  location = "westeurope" # Azure region for the resource
+
+  # Tags for everything in this architecture deployed with Terraform
+  tf_tags = { # Tags that are added when deploying with Terraform
+    "source" = "terraform"
+  }
+}
+```
+
+#### Policy
+
+Location:
+
+```terraform
+data "azurerm_subscription" "current" {} # Existing subscription for this example to work
+
+module "location_example" {
+  source = "./policy/location"
+
+  # Scope of the policies
+  scope      = "sub" # rg for resource group or sub for subscription 
+  scope_id   = data.azurerm_subscription.current.id # rg or sub id
+  scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
+
+  # Locations
+  location_list = "[\"westeurope\", \"northeurope\"]" # List of allowed Azure regions in this format
+}
+```
+
+Tags:
+
+```terraform
+data "azurerm_subscription" "current" {} # Existing subscription for this example to work
+
+module "tags_example" {
+  source = "./policy/tags"
+
+  # Scope of the policies
+  scope      = "sub" # rg for resource group or sub for subscription 
+  scope_id   = data.azurerm_subscription.current.id # rg or sub id
+  scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
+  location   = "westeurope" # Azure region for the inherited tags policy
+
+  # Required in all resources
+  required_tags = {
+    "owner" = "Eddy Example"
+  }
+
+  # Required in all resource groups
+  required_rg_tags = {
+    "owner"       = "Eddy Example"
+    "environment" = "tst"
+    "location"    = "we"
+    "project"     = "example"
+  }
+
+  # Inherited from resource groups
+  inherited_tags = {
+    "environment" = "tst"
+    "location"    = "we"
+    "project"     = "example"
+  }
+}
+```
+
+VM SKU:
+
+```terraform
+data "azurerm_subscription" "current" {} # Existing subscription for this example to work
+
+module "sku_example" {
+  source = "./policy/vm_sku"
+
+  # Scope of the policies
+  scope      = "sub" # rg for resource group or sub for subscription 
+  scope_id   = data.azurerm_subscription.current.id # rg or sub id
+  scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
+
+  # Sizes
+  sku_list = "[\"Standard_B1s\", \"Standard_B1ms\"]" # List of allowed VM SKUs in this format
+}
+```
+
+#### Project
+
+```terraform
+module "project_example" {
+  source = "./project"
+
+  # General settings
+  location    = "westeurope" # Azure region for the project (restricted to northeurope, norwayeast, swedencentral and westeurope in variables)
+  environment = "tst" # Project environment (dev, tst or prd)
+  project     = "example" # Name for the project
+
+  # Virtual network
+  virtual_network = ["10.0.0.0/26"] # List of address spaces in CIDR
+  subnets         = { # Map of subnets in CIDR
+    "subnet1" = ["10.0.0.0/28"]
+    "subnet2" = ["10.0.0.16/28"]
+  }
+
+  # Addresses for SSH access
+  ssh_addr_prefixes = var.ssh_addr_prefixes # List of IP addresses that should have SSH access (can be sensitive so better to use a variable)
+
+  # Tags for everything in this architecture deployed with Terraform
+  tf_tags = { # Tags that are added when deploying with Terraform
+    "source" = "terraform"
+  }
+}
+```
+
+#### Compute
+
+Virtual machine:
+
+```terraform
+module "vm_example" {
+  source = "./compute/virtual_machine"
+
+  # Dependencies and info
+  name_prefix         = "${module.project_example.name_prefix_out}-example" # Prefix to use in all resource names in the module (project output used here)
+  location            = module.homepage_prd.rg_location_out # Azure region for the resources (project output used here)
+  resource_group_name = module.homepage_prd.rg_name_out # Resource group name for the resources (project output used here)
+  subnet_id           = module.homepage_prd.subnets_out["subnet1"].id # Subnet ID for the virtual machine (project output used here)
+
+  # Virtual machine size
+  vm_sku = "Standard_B1ls" 
+
+  # Access
+  admin_user        = var.admin_user # Username for the admin in the virtual machine (can be sensitive so better to use a variable)
+  ssh_addr_prefixes = var.ssh_addr_prefixes # List of IP addresses that should have SSH access (can be sensitive so better to use a variable)
+
+  # Optional public IP
+  public_ip         = true # Whether the virtual machine has a public IP or not
+  allocation_method = "Static" # Static or Dynamic IP
+
+  # Optional data disk
+  data_disk      = false # Whether the virtual machine has a data disk
+  data_disk_size = 0 # Data disk size in GB
+
+  # Tags
+  tags        = merge(var.tf_tags, module.homepage_prd.tags_out) # Map of general tags for the  resources (project output and variable used here)
+  service_tag = { "service" = "nginx" } # Service tag for the virtual machine
+}
+```
+
+### Deploying
 
 ```bash
 # Requires Azure CLI and Terraform (required version 1.5.4 or any patch above that)
