@@ -60,6 +60,16 @@ variable "allocation_method" {
   }
 }
 
+variable "nsg" {
+  type        = bool
+  description = "Whether a network security group is created for the virtual machine: true or false."
+}
+
+variable "nsg_rules" {
+  type        = any
+  description = "Map of network security rules to add to the network security group."
+}
+
 variable "data_disk" {
   type        = bool
   description = "Whether a data disk is created for virtual machine or not: true or false."

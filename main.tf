@@ -1,7 +1,3 @@
-# Already existing data from Azure
-
-data "azurerm_subscription" "current" {}
-
 # Subscription scoped resources
 
 ## Budget - subscription
@@ -102,7 +98,7 @@ module "homepage_prd" {
 
   # Virtual network
   virtual_network = ["10.0.0.0/26"]
-  subnets         = { "subnet1" = ["10.0.0.0/28"] }
+  subnets         = { subnet1 = ["10.0.0.0/28"] }
 
   # Addresses for SSH access
   ssh_addr_prefixes = var.ssh_addr_prefixes
@@ -132,6 +128,33 @@ module "webserver_vm" {
   public_ip         = true
   allocation_method = "Static"
 
+  # Optional network security group
+  nsg = true
+  nsg_rules = {
+    ssh = {
+      name                       = "AllowSSHInBound"
+      priority                   = 100
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_address_prefixes    = var.ssh_addr_prefixes
+      source_port_range          = "*"
+      destination_address_prefix = "*"
+      destination_port_range     = "22"
+    },
+    web = {
+      name                       = "AllowInternetInBound"
+      priority                   = 110
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_address_prefix      = "*"
+      source_port_range          = "*"
+      destination_address_prefix = "*"
+      destination_port_ranges    = ["80", "443"]
+    }
+  }
+
   # Optional data disk
   data_disk      = false
   data_disk_size = 0 # GB
@@ -139,41 +162,4 @@ module "webserver_vm" {
   # Tags
   tags        = merge(var.tf_tags, module.homepage_prd.tags_out)
   service_tag = { "service" = "nginx" }
-}
-
-### Webserver NSG and association
-resource "azurerm_network_security_group" "webserver_nsg" {
-  name                = "${module.homepage_prd.name_prefix}-webserver-nsg"
-  location            = module.homepage_prd.location
-  resource_group_name = module.homepage_prd.name
-  tags                = merge(var.tf_tags, module.homepage_prd.tags)
-
-  security_rule {
-    name                       = "AllowSSHInBound"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_address_prefixes    = var.ssh_addr_prefixes
-    source_port_range          = "*"
-    destination_address_prefix = "*"
-    destination_port_range     = "22"
-  }
-
-  security_rule {
-    name                       = "AllowInternetInBound"
-    priority                   = 110
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_address_prefix      = "*"
-    source_port_range          = "*"
-    destination_address_prefix = "*"
-    destination_port_ranges    = ["80", "443"]
-  }
-}
-
-resource "azurerm_network_interface_security_group_association" "webserver_nsg_assoc" {
-  network_interface_id      = module.webserver_vm.nic_id_out
-  network_security_group_id = azurerm_network_security_group.webserver_nsg.id
 }

@@ -56,7 +56,7 @@ Repository has the following directories and files:
 The file **terraform.tfvars** should also be created to pass sensitive variables. It is not pushed into this repository. Currently the following variables are passed with it.
 
 ```terraform
-contact_emails    = ["email1@invalid.com", "email2@invalid.com"]  
+contact_emails    = ["email1@invalid.com", "email2@invalid.com"]
 ssh_addr_prefixes = ["123.123.123.123", "111.111.111.111"]
 admin_user        = "adminuser"
 ```
@@ -204,8 +204,8 @@ module "project_example" {
   # Virtual network
   virtual_network = ["10.0.0.0/26"] # List of address spaces in CIDR
   subnets         = { # Map of subnets in CIDR
-    "subnet1" = ["10.0.0.0/28"]
-    "subnet2" = ["10.0.0.16/28"]
+    subnet1 = ["10.0.0.0/28"]
+    subnet2 = ["10.0.0.16/28"]
   }
 
   # Addresses for SSH access
@@ -242,6 +242,35 @@ module "vm_example" {
   # Optional public IP
   public_ip         = true # Whether the virtual machine has a public IP or not
   allocation_method = "Static" # Static or Dynamic IP
+
+  # Optional network security group
+  nsg       = true # Whether network security group is created or not
+  nsg_rules = { # Rules to be added to the network security group
+    ssh = {
+      name                       = "AllowSSHInBound" # Name for the rule
+      priority                   = 100 # Priority of the rule (has to be unique in nsg, lower -> higher priority)
+      direction                  = "Inbound" # Direction of traffix in the rule
+      access                     = "Allow" # Whether the rule will Allow or Deny traffic
+      protocol                   = "Tcp" # Protocol of the traffic in the rule (Tcp, Udp, Icmp, Esp, Ah or * (=any protocol))
+
+      # Use a list of strings with plural attributes and a string with singular ones ("*" for any)
+      source_address_prefixes    = var.ssh_addr_prefixes
+      source_port_range          = "*"
+      destination_address_prefix = "10.0.0.0/28"
+      destination_port_range     = "22"
+    }
+    web = {
+      name                      = "AllowInternetInBound"
+      priority                  = 110
+      direction                 = "Inbound"
+      access                    = "Allow"
+      protocol                  = "Tcp"
+      source_address_prefixes   = ["123.123.123.123", "111.111.111.111"]
+      source_port_range         = "*"
+      destination_address_range = "*"
+      destination_port_ranges   = ["80", "443"]
+    }
+  }
 
   # Optional data disk
   data_disk      = false # Whether the virtual machine has a data disk
