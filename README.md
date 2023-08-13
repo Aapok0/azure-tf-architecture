@@ -48,10 +48,11 @@ Repository has the following directories and files:
   - **main.tf**
   - **outputs.tf**
   - **variables.tf**
+- **data.tf** &rarr; file to call existing data from Azure
 - **main.tf** &rarr; main file to call modules and other needed resources
-- **outputs.tf**
+- **outputs.tf** &rarr; main outputs that show, when running apply
 - **terraform.tf** &rarr; terraform and provider versions
-- **variables.tf**
+- **variables.tf** &rarr; file that defines variables
 
 The file **terraform.tfvars** should also be created to pass sensitive variables. It is not pushed into this repository. Currently the following variables are passed with it.
 
