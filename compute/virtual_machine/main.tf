@@ -126,6 +126,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
       ip           = self.public_ip_address
       user         = self.admin_username
       identityfile = "~/.ssh/id_rsa"
+      service      = self.tags.service
     })
     interpreter = ["bash", "-c"]
     on_failure  = continue
@@ -135,6 +136,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
     when = destroy
     command = templatefile("${path.module}/ssh-config-destroy.tpl", {
       name = self.name
+      ip   = self.public_ip_address
     })
     interpreter = ["bash", "-c"]
     on_failure  = continue
