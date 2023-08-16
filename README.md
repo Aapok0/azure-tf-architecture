@@ -209,9 +209,6 @@ module "project_example" {
     subnet2 = ["10.0.0.16/28"]
   }
 
-  # Addresses for SSH access
-  ssh_addr_prefixes = var.ssh_addr_prefixes # List of IP addresses that should have SSH access (can be sensitive so better to use a variable)
-
   # Tags for everything in this architecture deployed with Terraform
   tf_tags = { # Tags that are added when deploying with Terraform
     "source" = "terraform"

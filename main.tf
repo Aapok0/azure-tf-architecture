@@ -100,9 +100,6 @@ module "homepage_prd" {
   virtual_network = ["10.0.0.0/26"]
   subnets         = { subnet1 = ["10.0.0.0/28"] }
 
-  # Addresses for SSH access
-  ssh_addr_prefixes = var.ssh_addr_prefixes
-
   # Tags for everything in this architecture deployed with Terraform
   tf_tags = var.tf_tags
 }

@@ -51,11 +51,6 @@ variable "subnets" {
   description = "Map of address prefixes that are used in each subnet in CIDR."
 }
 
-variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
-  type        = list(any)
-  description = "IP range for SSH access to virtual machines."
-}
-
 variable "tf_tags" {
   type        = map(string)
   description = "Default tags to be added to all resource groups and resources."
