@@ -129,7 +129,7 @@ module "webserver_vm" {
   nsg = true
   nsg_rules = {
     ssh = {
-      name                       = "AllowSSHInBound"
+      name                       = "AllowSSHInBoundFromOwnIPs"
       priority                   = 100
       direction                  = "Inbound"
       access                     = "Allow"
@@ -149,6 +149,17 @@ module "webserver_vm" {
       source_port_range          = "*"
       destination_address_prefix = "*"
       destination_port_ranges    = ["80", "443"]
+    }
+    ping = {
+      name                       = "AllowICMPInBoundFromOwnIPs"
+      priority                   = 120
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Icmp"
+      source_address_prefixes    = var.ssh_addr_prefixes
+      source_port_range          = "*"
+      destination_address_prefix = "*"
+      destination_port_range     = "*"
     }
   }
 
