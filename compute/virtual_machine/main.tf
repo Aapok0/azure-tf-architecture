@@ -119,6 +119,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
     version   = "latest"
   }
 
+  # Add the virtual machine's host information to ssh config (only public IP for now)
   provisioner "local-exec" {
     command = templatefile("${path.module}/ssh-config-apply.tpl", {
       name         = self.name
@@ -132,12 +133,28 @@ resource "azurerm_linux_virtual_machine" "vm" {
     on_failure  = continue
   }
 
+  # Add virtual machine's ip to Ansible inventory (only public IP for now)
+  provisioner "local-exec" {
+    command     = "${path.module}/ansible-inventory-apply.bash ${self.public_ip_address} ${self.tags.environment} ${self.tags.service}"
+    interpreter = ["bash", "-c"]
+    on_failure  = continue
+  }
+
+  # Remove the virtual machine's host information from ssh config
   provisioner "local-exec" {
     when = destroy
     command = templatefile("${path.module}/ssh-config-destroy.tpl", {
       name = self.name
       ip   = self.public_ip_address
     })
+    interpreter = ["bash", "-c"]
+    on_failure  = continue
+  }
+
+  # Remove virtual machine's IP from Ansible inventory
+  provisioner "local-exec" {
+    when        = destroy
+    command     = "${path.module}/ansible-inventory-destroy.bash ${self.public_ip_address} ${self.tags.environment}"
     interpreter = ["bash", "-c"]
     on_failure  = continue
   }

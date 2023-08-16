@@ -223,6 +223,8 @@ module "project_example" {
 
 Virtual machine:
 
+- *Note: The module currently has scripts that add and remove host information to and from ssh config and an Ansible inventory to automate my development workflow.*
+
 ```terraform
 module "vm_example" {
   source = "./compute/virtual_machine"
