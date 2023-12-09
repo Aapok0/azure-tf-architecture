@@ -1,83 +1,52 @@
-# (Optional) Public IP
+# Linux VM and its dependent resources
+
+## (Optional) Public IP
 
 resource "azurerm_public_ip" "vm_pip" {
   count               = var.public_ip ? 1 : 0
-  name                = "${var.name_prefix}-pip"
+  name                = "${var.name}-pip"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.rg_name
   allocation_method   = var.allocation_method
   tags                = var.tags
 }
 
-# Network interface
+## Network interface
 
-## Non-public
+### Non-public
+
 resource "azurerm_network_interface" "vm_nic" {
   count               = var.public_ip ? 0 : 1
-  name                = "${var.name_prefix}-nic"
+  name                = "${var.name}-nic"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.rg_name
   tags                = var.tags
 
   ip_configuration {
-    name                          = "${var.name_prefix}-pip-conf"
+    name                          = "${var.name}-pip-conf"
     subnet_id                     = var.subnet_id
     private_ip_address_allocation = "Dynamic"
   }
 }
 
-## Public
+### Public
+
 resource "azurerm_network_interface" "vm_nic_public" {
   count               = var.public_ip ? 1 : 0
-  name                = "${var.name_prefix}-nic"
+  name                = "${var.name}-nic"
   location            = var.location
-  resource_group_name = var.resource_group_name
+  resource_group_name = var.rg_name
   tags                = var.tags
 
   ip_configuration {
-    name                          = "${var.name_prefix}-pip-conf"
+    name                          = "${var.name}-pip-conf"
     subnet_id                     = var.subnet_id
     private_ip_address_allocation = "Dynamic"
     public_ip_address_id          = azurerm_public_ip.vm_pip[count.index].id
   }
 }
 
-# Network security group, security rules and association
-
-resource "azurerm_network_security_group" "nsg" {
-  count               = var.nsg ? 1 : 0
-  name                = "${var.name_prefix}-nsg"
-  location            = var.location
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
-}
-
-resource "azurerm_network_security_rule" "nsg_rule" {
-  for_each                    = var.nsg_rules
-  resource_group_name         = var.resource_group_name
-  network_security_group_name = azurerm_network_security_group.nsg[0].name
-
-  name                         = each.value["name"]
-  priority                     = each.value["priority"]
-  direction                    = each.value["direction"]
-  access                       = each.value["access"]
-  protocol                     = each.value["protocol"]
-  source_address_prefixes      = lookup(each.value, "source_address_prefixes", null)
-  source_address_prefix        = lookup(each.value, "source_address_prefix", null)
-  source_port_ranges           = lookup(each.value, "source_port_ranges", null)
-  source_port_range            = lookup(each.value, "source_port_range", null)
-  destination_address_prefixes = lookup(each.value, "destination_address_prefixes", null)
-  destination_address_prefix   = lookup(each.value, "destination_address_prefix", null)
-  destination_port_ranges      = lookup(each.value, "destination_port_ranges", null)
-  destination_port_range       = lookup(each.value, "destination_port_range", null)
-}
-
-resource "azurerm_network_interface_security_group_association" "nsg_assoc" {
-  network_interface_id      = var.public_ip ? azurerm_network_interface.vm_nic_public[0].id : azurerm_network_interface.vm_nic[0].id
-  network_security_group_id = azurerm_network_security_group.nsg[0].id
-}
-
-# Random password for admin user
+## Random password for admin user
 
 resource "random_password" "admin_pass" {
   length           = 20
@@ -89,17 +58,17 @@ resource "random_password" "admin_pass" {
   override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
-# Virtual machine
+## Virtual machine
 
 resource "azurerm_linux_virtual_machine" "vm" {
-  name                  = "${var.name_prefix}-vm"
-  resource_group_name   = var.resource_group_name
+  name                  = var.name
+  resource_group_name   = var.rg_name
   location              = var.location
-  size                  = var.vm_sku
+  size                  = var.sku
   admin_username        = var.admin_user
   admin_password        = random_password.admin_pass.result
   network_interface_ids = var.public_ip ? [azurerm_network_interface.vm_nic_public[0].id] : [azurerm_network_interface.vm_nic[0].id]
-  tags                  = merge(var.tags, var.service_tag)
+  tags                  = merge(var.tags)
 
   admin_ssh_key {
     username   = var.admin_user
@@ -107,7 +76,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 
   os_disk {
-    name                 = "${var.name_prefix}-vm-osdisk"
+    name                 = "${var.name}-osdisk"
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
   }
@@ -119,7 +88,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
     version   = "latest"
   }
 
-  # Add the virtual machine's host information to ssh config (only public IP for now)
+  ### Add the virtual machine's host information to ssh config (only public IP for now)
   provisioner "local-exec" {
     command = templatefile("${path.module}/ssh-config-apply.tpl", {
       name         = self.name
@@ -133,14 +102,14 @@ resource "azurerm_linux_virtual_machine" "vm" {
     on_failure  = continue
   }
 
-  # Add virtual machine's ip to Ansible inventory (only public IP for now)
+  ### Add virtual machine's ip to Ansible inventory (only public IP for now)
   provisioner "local-exec" {
     command     = "${path.module}/ansible-inventory-apply.bash ${self.public_ip_address} ${self.tags.environment} ${self.tags.service}"
     interpreter = ["bash", "-c"]
     on_failure  = continue
   }
 
-  # Remove the virtual machine's host information from ssh config
+  ### Remove the virtual machine's host information from ssh config
   provisioner "local-exec" {
     when = destroy
     command = templatefile("${path.module}/ssh-config-destroy.tpl", {
@@ -151,7 +120,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
     on_failure  = continue
   }
 
-  # Remove virtual machine's IP from Ansible inventory
+  ### Remove virtual machine's IP from Ansible inventory
   provisioner "local-exec" {
     when        = destroy
     command     = "${path.module}/ansible-inventory-destroy.bash ${self.public_ip_address} ${self.tags.environment}"
@@ -160,13 +129,13 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 }
 
-# (Optional) Data disk
+## (Optional) Data disk
 
 resource "azurerm_managed_disk" "project_vm_disk" {
   count                = var.data_disk ? 1 : 0
-  name                 = "${var.name_prefix}-vm-disk"
+  name                 = "${var.name}-disk"
   location             = var.location
-  resource_group_name  = var.resource_group_name
+  resource_group_name  = var.rg_name
   storage_account_type = "Standard_LRS"
   create_option        = "Empty"
   disk_size_gb         = var.data_disk_size

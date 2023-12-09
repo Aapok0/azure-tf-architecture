@@ -12,8 +12,8 @@ module "sub_budget" {
   # General settings
   amount     = 10
   time_grain = "Monthly"
-  start_date = "2023-08-01T00:00:00Z"
-  end_date   = "2025-08-01T00:00:00Z"
+  start_date = "2023-12-01T00:00:00Z"
+  end_date   = "2025-12-01T00:00:00Z"
 
   # Notification settings
   threshold_alert = true
@@ -88,86 +88,23 @@ module "vm_sku" {
 ## Homepage production
 
 ### Base resources
-module "homepage_prd" {
+module "project" {
   source = "./project"
 
+  for_each = var.projects
+
   # General settings
-  location    = "swedencentral"
-  environment = "prd"
-  project     = "homepage"
+  location    = lookup(each.value, "location", "swedencentral")
+  environment = lookup(each.value, "environment", "prd")
+  project     = each.key
 
   # Virtual network
-  virtual_network = ["10.0.0.0/26"]
-  subnets         = { subnet1 = ["10.0.0.0/28"] }
+  vnet    = lookup(each.value, "vnet", ["10.0.0.0/26"])
+  subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] }})
+
+  # Computer resources
+  vms = lookup(each.value, "vms", {})
 
   # Tags for everything in this architecture deployed with Terraform
   tf_tags = var.tf_tags
-}
-
-### Webserver
-module "webserver_vm" {
-  source = "./compute/virtual_machine"
-
-  # Dependencies and info
-  name_prefix         = "${module.homepage_prd.name_prefix_out}-webserver"
-  location            = module.homepage_prd.rg_location_out
-  resource_group_name = module.homepage_prd.rg_name_out
-  subnet_id           = module.homepage_prd.subnets_out["subnet1"].id
-
-  # Virtual machine size
-  vm_sku = "Standard_B1ls"
-
-  # Access
-  admin_user        = var.admin_user
-  ssh_addr_prefixes = var.ssh_addr_prefixes
-
-  # Optional public IP
-  public_ip         = true
-  allocation_method = "Static"
-
-  # Optional network security group
-  nsg = true
-  nsg_rules = {
-    ssh = {
-      name                       = "AllowSSHInBoundFromOwnIPs"
-      priority                   = 100
-      direction                  = "Inbound"
-      access                     = "Allow"
-      protocol                   = "Tcp"
-      source_address_prefixes    = var.ssh_addr_prefixes
-      source_port_range          = "*"
-      destination_address_prefix = "*"
-      destination_port_range     = "22"
-    },
-    web = {
-      name                       = "AllowInternetInBound"
-      priority                   = 110
-      direction                  = "Inbound"
-      access                     = "Allow"
-      protocol                   = "Tcp"
-      source_address_prefix      = "*"
-      source_port_range          = "*"
-      destination_address_prefix = "*"
-      destination_port_ranges    = ["80", "443"]
-    }
-    ping = {
-      name                       = "AllowICMPInBoundFromOwnIPs"
-      priority                   = 120
-      direction                  = "Inbound"
-      access                     = "Allow"
-      protocol                   = "Icmp"
-      source_address_prefixes    = var.ssh_addr_prefixes
-      source_port_range          = "*"
-      destination_address_prefix = "*"
-      destination_port_range     = "*"
-    }
-  }
-
-  # Optional data disk
-  data_disk      = false
-  data_disk_size = 0 # GB
-
-  # Tags
-  tags        = merge(var.tf_tags, module.homepage_prd.tags_out)
-  service_tag = { "service" = "nginx" }
 }

@@ -1,4 +1,4 @@
-variable "name_prefix" {
+variable "name" {
   type        = string
   description = "Name prefix for all resources in the module."
 }
@@ -8,7 +8,7 @@ variable "location" {
   description = "Azure region resource group or resource is located in."
 }
 
-variable "resource_group_name" {
+variable "rg_name" {
   type        = string
   description = "Resource group name virtual machine is in."
 }
@@ -18,17 +18,17 @@ variable "subnet_id" {
   description = "ID of the virtual machine's subnet."
 }
 
-variable "vm_sku" {
+variable "sku" {
   type        = string
   description = "Size of the virtual machine: Standard_B1ls, Standard_B1s or Standard_B1ms."
   default     = "Standard_B1ls"
 
   validation {
     condition = contains(
-      ["Standard_B1ls", "Standard_B1s", "Standard_B1ms"],
-      var.vm_sku
+      ["Standard_B1ls", "Standard_B1s", "Standard_B1ms", "Standard_B2s"],
+      var.sku
     )
-    error_message = "Allowed virtual machine SKUs are Standard_B1ls, Standard_B1s and Standard_B1ms."
+    error_message = "Allowed virtual machine SKUs are Standard_B1ls, Standard_B1s, Standard_B1ms and Standard_B2s."
   }
 }
 
@@ -60,16 +60,6 @@ variable "allocation_method" {
   }
 }
 
-variable "nsg" {
-  type        = bool
-  description = "Whether a network security group is created for the virtual machine: true or false."
-}
-
-variable "nsg_rules" {
-  type        = any
-  description = "Map of network security rules to add to the network security group."
-}
-
 variable "data_disk" {
   type        = bool
   description = "Whether a data disk is created for virtual machine or not: true or false."
@@ -83,9 +73,4 @@ variable "data_disk_size" {
 variable "tags" {
   type        = map(string)
   description = "Tags to be added to all resources in the module."
-}
-
-variable "service_tag" {
-  type        = map(string)
-  description = "Service tag that is added to the virtual machine."
 }

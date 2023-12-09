@@ -41,14 +41,19 @@ variable "project" {
   description = "Name of the project webserver is created for."
 }
 
-variable "virtual_network" {
+variable "vnet" {
   type        = list(any)
   description = "List of address spaces that are used in the virtual network in CIDR."
 }
 
 variable "subnets" {
-  type        = map(any)
-  description = "Map of address prefixes that are used in each subnet in CIDR."
+  type        = any
+  description = "Map of CIDR address prefixes and security rules that are used in each subnet and it's securitu group."
+}
+
+variable "vms" {
+  type        = any
+  description = "Map of VMs and variables needed to create them."
 }
 
 variable "tf_tags" {

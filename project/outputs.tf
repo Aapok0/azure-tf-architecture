@@ -1,19 +1,12 @@
-output "name_prefix_out" {
-  value = local.name_prefix
+output "private_ip_out" {
+  value = values(module.linux_vms)[*].private_ip_out
 }
 
-output "rg_location_out" {
-  value = azurerm_resource_group.project_rg.location
+output "public_ip_out" {
+  value = values(module.linux_vms)[*].public_ip_out
 }
 
-output "rg_name_out" {
-  value = azurerm_resource_group.project_rg.name
-}
-
-output "subnets_out" {
-  value = azurerm_subnet.project_snet
-}
-
-output "tags_out" {
-  value = local.tags
+output "admin_pass_out" {
+  sensitive = true
+  value     = values(module.linux_vms)[*].admin_pass_out
 }
