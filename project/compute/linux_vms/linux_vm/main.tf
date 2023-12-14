@@ -92,7 +92,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   provisioner "local-exec" {
     command = templatefile("${path.module}/ssh-config-apply.tpl", {
       name         = self.name
-      host         = "${self.tags.project}-web"
+      host         = "${self.tags.project}-${self.tags.service}-${self.tags.node}"
       ip           = self.public_ip_address
       user         = self.admin_username
       identityfile = "~/.ssh/id_rsa"

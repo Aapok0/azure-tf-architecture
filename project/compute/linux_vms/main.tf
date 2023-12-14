@@ -27,5 +27,5 @@ module "linux_vm" {
   data_disk_size = lookup(var.details, "data_disk_size", 0) # GB
 
   # Tags
-  tags = var.tags
+  tags = merge(var.tags, { "node" = "${count.index}" })
 }
