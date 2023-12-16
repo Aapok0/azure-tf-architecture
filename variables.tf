@@ -3,16 +3,6 @@ variable "contact_emails" { # Sensitive information -> define in a tfvars file
   description = "Emails contacted, when alerts are triggered."
 }
 
-variable "admin_user" { # Sensitive information -> define in a tfvars file
-  type        = string
-  description = "Username for the root user in a virtual machine."
-}
-
-variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
-  type        = list(any)
-  description = "IP range for SSH access to virtual machines."
-}
-
 variable "tf_tags" {
   type        = map(string)
   description = "Default tags to be added to all resource groups and resources deployed from terraform."
@@ -109,5 +99,10 @@ variable "location_abbreviation" {
 variable "sku_list" {
   type        = string
   description = "List of allowed vm skus."
-  default     = "[\"Standard_B1ls\", \"Standard_B1s\", \"Standard_B1ms\"]"
+  default     = "[\"Standard_B1ls\", \"Standard_B1s\", \"Standard_B1ms\", \"Standard_B2s\"]"
+}
+
+variable "projects" {
+  type        = any
+  description = "Map that holds all the variables required for the project to create resource group, networks, security groups and vms."
 }
