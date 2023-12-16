@@ -102,7 +102,7 @@ module "project" {
   vnet    = lookup(each.value, "vnet", ["10.0.0.0/26"])
   subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] }})
 
-  # Computer resources
+  # Compute resources
   vms = lookup(each.value, "vms", {})
 
   # Tags for everything in this architecture deployed with Terraform
