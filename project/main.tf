@@ -36,7 +36,7 @@ module "subnet" {
   for_each = var.subnets
 
   # Dependencies and info
-  name      = "${local.name_prefix}-snet-${each.key}"
+  name      = "${local.name_prefix}-${each.key}-snet"
   location  = var.location
   rg_name   = azurerm_resource_group.project_rg.name
   vnet_name = azurerm_virtual_network.project_vnet.name

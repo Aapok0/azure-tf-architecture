@@ -37,11 +37,6 @@ variable "admin_user" { # Sensitive information -> define name in a tfvars file
   description = "Username for the root user in the virtual machine."
 }
 
-variable "ssh_addr_prefixes" { # Sensitive information -> define in a tfvars file
-  type        = list(any)
-  description = "IP range for SSH access to the virtual machine."
-}
-
 variable "public_ip" {
   type        = bool
   description = "Whether a public ip is created for the virtual machine: true or false."

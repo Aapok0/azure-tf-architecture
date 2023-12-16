@@ -16,7 +16,6 @@ module "linux_vm" {
 
   # Access
   admin_user        = lookup(var.details, "admin_user", "admin")
-  ssh_addr_prefixes = lookup(var.details, "ssh_addr_prefixes", [])
 
   # Optional public IP
   public_ip         = lookup(var.details, "public_ip", false)
