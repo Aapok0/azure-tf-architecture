@@ -17,9 +17,9 @@ resource "azurerm_network_watcher" "nwatcher" {
   location            = var.location
   resource_group_name = azurerm_resource_group.nwatcher_rg.name
   tags = merge(var.tf_tags, {
-    location = "${var.location}"
+    location    = "${var.location}"
     environment = "all"
     project     = "all"
-    service  = "network watcher"
+    service     = "network watcher"
   })
 }

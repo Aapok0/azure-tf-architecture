@@ -42,13 +42,13 @@ module "subnet" {
   vnet_name = azurerm_virtual_network.project_vnet.name
 
   # IP ranges
-  cidr      = lookup(each.value, "cidr", null)
+  cidr = lookup(each.value, "cidr", null)
 
   # Security group rules (won't create anything, if there's no rules)
-  nsg_rules  = lookup(each.value, "nsg_rules", {})
+  nsg_rules = lookup(each.value, "nsg_rules", {})
 
   # Tags
-  tags      = merge(var.tf_tags, local.tags)
+  tags = merge(var.tf_tags, local.tags)
 }
 
 # Compute resources

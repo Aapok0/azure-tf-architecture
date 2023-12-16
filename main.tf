@@ -100,7 +100,7 @@ module "project" {
 
   # Virtual network
   vnet    = lookup(each.value, "vnet", ["10.0.0.0/26"])
-  subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] }})
+  subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] } })
 
   # Compute resources
   vms = lookup(each.value, "vms", {})

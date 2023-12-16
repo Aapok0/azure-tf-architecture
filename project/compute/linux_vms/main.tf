@@ -15,7 +15,7 @@ module "linux_vm" {
   sku = lookup(var.details, "sku", "Standard_B1ls")
 
   # Access
-  admin_user        = lookup(var.details, "admin_user", "admin")
+  admin_user = lookup(var.details, "admin_user", "admin")
 
   # Optional public IP
   public_ip         = lookup(var.details, "public_ip", false)

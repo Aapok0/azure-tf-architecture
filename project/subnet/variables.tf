@@ -19,7 +19,7 @@ variable "vnet_name" {
 }
 
 variable "cidr" {
-  type        = list
+  type        = list(any)
   description = "List of cidr ranges for the subnet."
 }
 

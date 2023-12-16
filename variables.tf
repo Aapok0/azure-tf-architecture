@@ -103,6 +103,6 @@ variable "sku_list" {
 }
 
 variable "projects" {
-  type          = any
-  description   = "Map that holds all the variables required for the project to create resource group, networks, security groups and vms."
+  type        = any
+  description = "Map that holds all the variables required for the project to create resource group, networks, security groups and vms."
 }
