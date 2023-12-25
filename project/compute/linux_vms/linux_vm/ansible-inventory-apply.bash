@@ -18,7 +18,7 @@ case $2 in
 esac
 
 if [ "$3" = "nginx" ]; then
-    sed -i -E "/[servers]|[nginx]/a $1" ~/Workspace/homepage-webserver-ansible/inventory/${env}
+    sed -i -E "/[servers]|[nginx]/a $1 ansible_user=$4" ~/Workspace/homepage-webserver-ansible/inventory/${env}
 else
     sed -i "/[servers]/a $1" ~/Workspace/homepage-webserver-ansible/inventory/${env}
 fi

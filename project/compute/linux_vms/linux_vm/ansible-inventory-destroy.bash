@@ -13,4 +13,4 @@ case $2 in
         ;;
 esac
 
-sed -i "/$1/d" ~/Workspace/homepage-webserver-ansible/inventory/${env}
+sed -i "/$1 ansible_user=$3/d" ~/Workspace/homepage-webserver-ansible/inventory/${env}

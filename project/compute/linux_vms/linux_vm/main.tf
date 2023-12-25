@@ -104,7 +104,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
   ### Add virtual machine's ip to Ansible inventory (only public IP for now)
   provisioner "local-exec" {
-    command     = "${path.module}/ansible-inventory-apply.bash ${self.public_ip_address} ${self.tags.environment} ${self.tags.service}"
+    command     = "${path.module}/ansible-inventory-apply.bash ${self.public_ip_address} ${self.tags.environment} ${self.tags.service} ${self.admin_username}"
     interpreter = ["bash", "-c"]
     on_failure  = continue
   }
@@ -123,7 +123,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   ### Remove virtual machine's IP from Ansible inventory
   provisioner "local-exec" {
     when        = destroy
-    command     = "${path.module}/ansible-inventory-destroy.bash ${self.public_ip_address} ${self.tags.environment}"
+    command     = "${path.module}/ansible-inventory-destroy.bash ${self.public_ip_address} ${self.tags.environment} ${self.admin_username}"
     interpreter = ["bash", "-c"]
     on_failure  = continue
   }
