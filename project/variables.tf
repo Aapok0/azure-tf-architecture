@@ -56,6 +56,11 @@ variable "vms" {
   description = "Map of VMs and variables needed to create them."
 }
 
+variable "domains" {
+  type        = any
+  description = "Map of names of the project's domains, the records needed and additional settings. Used to create a DNS zone and records."
+}
+
 variable "tf_tags" {
   type        = map(string)
   description = "Default tags to be added to all resource groups and resources."

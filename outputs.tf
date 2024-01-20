@@ -1,9 +1,9 @@
-output "private_ip_out" {
-  value = values(module.project)[*].private_ip_out
+output "private_ip_info_out" {
+  value = flatten(values(module.project)[*].private_ip_info_out)
 }
 
-output "public_ip_out" {
-  value = values(module.project)[*].public_ip_out
+output "public_ip_info_out" {
+  value = flatten(values(module.project)[*].public_ip_info_out)
 }
 
 output "admin_pass_out" {

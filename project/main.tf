@@ -72,3 +72,23 @@ module "linux_vms" {
   # Tags
   tags = merge(var.tf_tags, local.tags, lookup(each.value, "service_tags"), {})
 }
+
+# DNS zone
+
+module "dns_zone" {
+  source = "./dns_zone"
+
+  for_each = var.domains
+
+  # Dependencies and info
+  name    = each.key
+  rg_name = azurerm_resource_group.project_rg.name
+
+  # Records
+  records       = lookup(each.value, "records", {})
+  ttl           = lookup(each.value, "ttl", 300)
+  vm_public_ips = flatten(values(module.linux_vms)[*].public_ip_out)
+
+  # Tags
+  tags = merge(var.tf_tags, local.tags)
+}

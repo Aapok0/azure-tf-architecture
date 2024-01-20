@@ -105,6 +105,9 @@ module "project" {
   # Compute resources
   vms = lookup(each.value, "vms", {})
 
+  # DNS
+  domains = lookup(each.value, "domains", {})
+
   # Tags for everything in this architecture deployed with Terraform
   tf_tags = var.tf_tags
 }
