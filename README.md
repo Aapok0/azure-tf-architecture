@@ -10,67 +10,13 @@ The way I arranged the modules and wrote them is a compromise between of the nee
 - [Homepage version 2](https://github.com/Aapok0/homepage-bulma)
 - [Ansible for Nginx webserver](https://github.com/Aapok0/homepage-webserver-ansible)
 
-## Structure
-
-Repository has the following directories and files:
-
-- **general/** &rarr; general resource modules
-  - **budget/** &rarr; module to create a budget
-    - **main.tf**
-    - **variables.tf**
-  - **networks_watcher/** &rarr; module to create a network watcher
-    - **main.tf**
-    - **variables.tf**
-- **policy/** &rarr; policy assignment modules
-  - **location/** &rarr; module to create allowed locations policy
-    - **main.tf**
-    - **variables.tf**
-  - **tags/** &rarr; module to create required and inherited tags policy
-    - **rg_tags/** &rarr; submodule for the resource group scope
-      - **main.tf**
-      - **variables.tf**
-    - **sub_tags/** &rarr; submodule for the subscription scope
-      - **main.tf**
-      - **variables.tf**
-    - **main.tf**
-    - **variables.tf**
-  - **vm_sku** &rarr; module to create allowed virtual machine SKUs policy
-    - **main.tf**
-    - **variables.tf**
-- **project/** &rarr; module to create the main wrapper for a project
-  - **main.tf**
-  - **outputs.tf**
-  - **variables.tf**
-  - **compute/** &rarr; compute resource modules
-    - **linux_vms/** &rarr; module to create linux virtual machines
-      - **linux_vm/** &rarr; module to create a single linux virtual machine
-          - **main.tf**
-          - **outputs.tf**
-          - **variables.tf**
-          - **ansible-inventory-apply.bash** &rarr; script to add host information to Ansible inventory
-          - **ansible-inventory-destroy.bash** &rarr; script to remove host information from Ansible inventory
-          - **ssh-config-apply** &rarr; script to add host information to ssh config file
-          - **ssh-config-destroy** &rarr; script to remove host information from ssh config file
-      - **subnet/** &rarr; module to create subnet, network security group and security rules
-        - **main.tf**
-        - **outputs.tf**
-        - **variables.tf**
-      - **main.tf**
-      - **outputs.tf**
-      - **variables.tf**
-- **data.tf** &rarr; file to call existing data from Azure
-- **main.tf** &rarr; main file to call modules and other needed resources
-- **outputs.tf** &rarr; main outputs that show, when running apply
-- **terraform.tf** &rarr; terraform and provider versions
-- **variables.tf** &rarr; file that defines variables
-
-The files **budget.auto.tfvars** and **project.auto.tfvars** should also be created to pass sensitive variables and a project variable. They are not pushed into this repository.
-
 ## How to use
 
 ### Configuration
 
 Modules are to generally be called in the **main.tf** or other **.tf** files in the root module. Source of the modules will reflect that. Project module has submodules, which it calls itself inside the module. The path needs to be changed, if the modules are called elsewhere.
+
+The files **budget.auto.tfvars** and **project.auto.tfvars** should be created to pass sensitive variables and a project variable. They are not pushed into this repository.
 
 #### General
 
@@ -210,6 +156,9 @@ module "project_example" {
   # Compute resources
   vms = lookup(each.value, "vms", {})
 
+  # DNS
+  domains = lookup(each.value, "domains", {})
+
   # Tags for everything in this architecture deployed with Terraform
   tf_tags = var.tf_tags
 }
@@ -270,6 +219,18 @@ projects = {
         # Optional data disk
         data_disk      = false # Whether the virtual machine has a data disk (true/false)
         data_disk_size = 0 # Data disk size in GB
+      }
+    }
+
+    domains = { # Map of domains to be create DNS zones for
+      "example.com" = { # Registered domain
+        ttl     = 1000 # Optional, Time To Live for the records. Defaults to 300.
+        records = { # Map of records to create in the DNS zone for the domain
+          "@" = { # Makes A record for root domain
+            ips = ["123.123.123.123", "111.111.111.111"] # Optional, IPs to add to the record. Defaults to project's VMs public IPs.
+          },
+          www = {} # Makes A record for www.example.com to project's VMs public IPs
+        }
       }
     }
   }
