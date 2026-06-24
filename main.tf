@@ -13,7 +13,7 @@ module "sub_budget" {
   amount     = 10
   time_grain = "Monthly"
   start_date = "2023-12-01T00:00:00Z"
-  end_date   = "2025-12-01T00:00:00Z"
+  end_date   = "2027-12-01T00:00:00Z"
 
   # Notification settings
   threshold_alert = true

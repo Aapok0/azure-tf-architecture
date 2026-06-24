@@ -37,7 +37,7 @@ module "budget_example" {
   amount     = 10 # Budget limit in dollars
   time_grain = "Monthly" # BillingAnnual, BillingMonth, BillingQuarter, Annually, Monthly or Quarterly
   start_date = "2023-08-01T00:00:00Z" # Needs to be in this format
-  end_date   = "2025-08-01T00:00:00Z" # Needs to be in this format
+  end_date   = "2027-12-01T00:00:00Z" # Needs to be in this format; extend before it passes
 
   # Notification settings
   threshold_alert = true # Whether threshold alert is enabled
@@ -164,79 +164,81 @@ module "project_example" {
 }
 ```
 
-Project - project.auto.tfvars:
+Project - `project.auto.tfvars` (local file in **azure-tf-architecture**, not committed):
+
+> **Placeholders:** `203.0.113.x` addresses are [RFC 5737 documentation IPs](https://datatrfc.ietf.org/doc/html/rfc5737), not real public IPs. `your_admin_user` is an example — use a non-obvious username in your real tfvars.
 
 ```terraform
 projects = {
 
-  homepage = { # This will be the name of the project
-    location    = "westeurope" # Azure region for the project (restricted to northeurope, norwayeast, swedencentral and westeurope in variables)
-    environment = "tst" # Project environment (dev, tst or prd)
-    vnet    = ["10.0.0.0/26"] # List of address spaces in CIDR
-    subnets = { # Map of subnets with nsg rules
-      frontend = { # Name of the subnet
-        cidr = ["10.0.0.0/28"] # List of address spaces in CIDR
-        nsg_rules = { # Map of network security group rules (does not create network security group, if there are no rules)
+  homepage = {
+    location    = "swedencentral"
+    environment = "prd"
+    vnet        = ["10.0.0.0/26"]
+    subnets = {
+      frontend = {
+        cidr = ["10.0.0.0/28"]
+        nsg_rules = {
           ssh = {
-            name                       = "AllowSSHInBound" # Name for the rule
-            priority                   = 100 # Priority of the rule (has to be unique in nsg, lower -> higher priority)
-            direction                  = "Inbound" # Direction of traffix in the rule
-            access                     = "Allow" # Whether the rule will Allow or Deny traffic
-            protocol                   = "Tcp" # Protocol of the traffic in the rule (Tcp, Udp, Icmp, Esp, Ah or * (=any protocol))
-
-            # Use a list of strings with plural attributes and a string with singular ones ("*" for any)
-            source_address_prefixes    = var.ssh_addr_prefixes
+            name                       = "AllowSSHInBoundFromOwnIPs"
+            priority                   = 100
+            direction                  = "Inbound"
+            access                     = "Allow"
+            protocol                   = "Tcp"
+            source_address_prefixes    = ["203.0.113.10"] # Your home IP(s); match firewall_allowed_ips in homepage-webserver-ansible/group_vars/servers.yml
             source_port_range          = "*"
-            destination_address_prefix = "10.0.0.0/28"
+            destination_address_prefix = "*"
             destination_port_range     = "22"
           }
           web = {
-            name                      = "AllowInternetInBound"
-            priority                  = 110
-            direction                 = "Inbound"
-            access                    = "Allow"
-            protocol                  = "Tcp"
-            source_address_prefixes   = ["123.123.123.123", "111.111.111.111"]
-            source_port_range         = "*"
-            destination_address_range = "*"
-            destination_port_ranges   = ["80", "443"]
+            name                       = "AllowInternetInBound"
+            priority                   = 110
+            direction                  = "Inbound"
+            access                     = "Allow"
+            protocol                   = "Tcp"
+            source_address_prefix      = "*"
+            source_port_range          = "*"
+            destination_address_prefix = "*"
+            destination_port_ranges    = ["80", "443"]
+          }
+          ping = {
+            name                       = "AllowICMPInBoundFromOwnIPs"
+            priority                   = 120
+            direction                  = "Inbound"
+            access                     = "Allow"
+            protocol                   = "Icmp"
+            source_address_prefixes    = ["203.0.113.10"]
+            source_port_range          = "*"
+            destination_address_prefix = "*"
+            destination_port_range     = "*"
           }
         }
       }
     }
 
-    vms = { # Map of vms to be created
-      webserver = { # Name of the virtual machine node/nodes
-        count = 1 # Number of nodes of this virtual machine
-
-        sku   = "Standard_B1ls" # Size of the virtual machine
-        subnet        = "frontend" # Name of the subnet the nodes should use (must be configured above)
-        public_ip     = true # Whether the virtual machine has a public IP or not
-        ip_allocation = "Static" # Static or Dynamic IP
-        admin_user    = "adminuser" # Name of the admin user to be used (sensitive)
-        service_tags  = { "service" = "nginx" } # Service tags for the nodes
-
-        # Optional data disk
-        data_disk      = false # Whether the virtual machine has a data disk (true/false)
-        data_disk_size = 0 # Data disk size in GB
+    vms = {
+      webserver = {
+        count         = 1
+        sku           = "Standard_B1ls"
+        subnet        = "frontend"
+        public_ip     = true
+        ip_allocation = "Static"
+        admin_user    = "your_admin_user"
+        service_tags  = { "service" = "nginx" }
       }
     }
 
-    domains = { # Map of domains to be create DNS zones for
-      "example.com" = { # Registered domain
-        ttl     = 1000 # Optional, Time To Live for the records. Defaults to 300.
-        records = { # Map of records to create in the DNS zone for the domain
-          "@" = { # Makes A record for root domain
-            ips = ["123.123.123.123", "111.111.111.111"] # Optional, IPs to add to the record. Defaults to project's VMs public IPs.
-          },
-          www = {} # Makes A record for www.example.com to project's VMs public IPs
-        }
+    domains = {
+      "example.com" = {
+        records = { "@" = {}, www = {} }
       }
     }
   }
 
 }
 ```
+
+NSG `source_address_prefixes` for SSH and ICMP should match `firewall_allowed_ips` in **homepage-webserver-ansible** `group_vars/servers.yml`. Web traffic uses `source_address_prefix = "*"` so the site is reachable from the Internet.
 
 ### Deploying
 
