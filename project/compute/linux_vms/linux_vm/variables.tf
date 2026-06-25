@@ -32,9 +32,10 @@ variable "sku" {
   }
 }
 
-variable "admin_user" { # Sensitive information -> define name in a tfvars file
+variable "admin_ssh_public_key_path" {
   type        = string
-  description = "Username for the root user in the virtual machine."
+  description = "Path to the SSH public key for the VM admin user (~ expands to home). Azure Linux VMs support RSA keys only, not ed25519."
+  default     = "~/.ssh/id_rsa.pub"
 }
 
 variable "public_ip" {
@@ -68,4 +69,15 @@ variable "data_disk_size" {
 variable "tags" {
   type        = map(string)
   description = "Tags to be added to all resources in the module."
+}
+
+variable "os_image" {
+  type = object({
+    publisher = string
+    offer     = string
+    sku       = string
+    version   = string
+  })
+  description = "Pinned Ubuntu image (offer ubuntu-24_04-lts, sku server). Override per VM via os_image in project.auto.tfvars. List versions: az vm image list --publisher Canonical --offer ubuntu-24_04-lts --sku server --location <region> --all -o table — use a version from server rows only."
+  default     = null
 }

@@ -12,7 +12,7 @@ module "sub_budget" {
   # General settings
   amount     = 10
   time_grain = "Monthly"
-  start_date = "2023-12-01T00:00:00Z"
+  start_date = "2026-06-01T00:00:00Z" # first day of current month when extending end_date
   end_date   = "2027-12-01T00:00:00Z"
 
   # Notification settings

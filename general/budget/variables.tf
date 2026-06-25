@@ -41,7 +41,7 @@ variable "time_grain" {
 
 variable "start_date" {
   type        = string
-  description = "Starting date of the budget monitoring period in format: YYYY-MM-01T00:00:00Z"
+  description = "Starting date of the budget monitoring period in format: YYYY-MM-01T00:00:00Z. When updating an existing budget (e.g. extending end_date), Azure requires this to be the first day of the current month."
 }
 
 variable "end_date" {

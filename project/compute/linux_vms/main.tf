@@ -14,8 +14,8 @@ module "linux_vm" {
   # Virtual machine size
   sku = lookup(var.details, "sku", "Standard_B1ls")
 
-  # Access
-  admin_user = lookup(var.details, "admin_user", "admin")
+  # Access (admin username and password are generated per VM)
+  admin_ssh_public_key_path = lookup(var.details, "admin_ssh_public_key_path", "~/.ssh/id_rsa.pub")
 
   # Optional public IP
   public_ip         = lookup(var.details, "public_ip", false)
@@ -27,4 +27,7 @@ module "linux_vm" {
 
   # Tags
   tags = merge(var.tags, { "node" = "${count.index}" })
+
+  # Optional pinned OS image override
+  os_image = lookup(var.details, "os_image", null)
 }

@@ -1,5 +1,15 @@
 # Linux VM and its dependent resources
 
+locals {
+  default_os_image = {
+    publisher = "Canonical"
+    offer     = "ubuntu-24_04-lts"
+    sku       = "server"
+    version   = "24.04.202606060"
+  }
+  os_image = var.os_image != null ? var.os_image : local.default_os_image
+}
+
 ## (Optional) Public IP
 
 resource "azurerm_public_ip" "vm_pip" {
@@ -46,7 +56,19 @@ resource "azurerm_network_interface" "vm_nic_public" {
   }
 }
 
-## Random password for admin user
+## Random admin credentials
+
+resource "random_string" "admin_user" {
+  length  = 10
+  lower   = true
+  upper   = false
+  numeric = true
+  special = false
+}
+
+locals {
+  admin_user = "u${random_string.admin_user.result}"
+}
 
 resource "random_password" "admin_pass" {
   length           = 20
@@ -65,14 +87,14 @@ resource "azurerm_linux_virtual_machine" "vm" {
   resource_group_name   = var.rg_name
   location              = var.location
   size                  = var.sku
-  admin_username        = var.admin_user
+  admin_username        = local.admin_user
   admin_password        = random_password.admin_pass.result
   network_interface_ids = var.public_ip ? [azurerm_network_interface.vm_nic_public[0].id] : [azurerm_network_interface.vm_nic[0].id]
   tags                  = merge(var.tags)
 
   admin_ssh_key {
-    username   = var.admin_user
-    public_key = file("~/.ssh/id_rsa.pub")
+    username   = local.admin_user
+    public_key = file(pathexpand(var.admin_ssh_public_key_path))
   }
 
   os_disk {
@@ -82,50 +104,10 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 
   source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts"
-    version   = "latest"
-  }
-
-  ### Add the virtual machine's host information to ssh config (only public IP for now)
-  provisioner "local-exec" {
-    command = templatefile("${path.module}/ssh-config-apply.tpl", {
-      name         = self.name
-      host         = "${self.tags.project}-${self.tags.service}-${self.tags.node}"
-      ip           = self.public_ip_address
-      user         = self.admin_username
-      identityfile = "~/.ssh/id_rsa"
-      service      = self.tags.service
-    })
-    interpreter = ["bash", "-c"]
-    on_failure  = continue
-  }
-
-  ### Add virtual machine's ip to Ansible inventory (only public IP for now)
-  provisioner "local-exec" {
-    command     = "${path.module}/ansible-inventory-apply.bash ${self.public_ip_address} ${self.tags.environment} ${self.tags.service} ${self.admin_username}"
-    interpreter = ["bash", "-c"]
-    on_failure  = continue
-  }
-
-  ### Remove the virtual machine's host information from ssh config
-  provisioner "local-exec" {
-    when = destroy
-    command = templatefile("${path.module}/ssh-config-destroy.tpl", {
-      name = self.name
-      ip   = self.public_ip_address
-    })
-    interpreter = ["bash", "-c"]
-    on_failure  = continue
-  }
-
-  ### Remove virtual machine's IP from Ansible inventory
-  provisioner "local-exec" {
-    when        = destroy
-    command     = "${path.module}/ansible-inventory-destroy.bash ${self.public_ip_address} ${self.tags.environment} ${self.admin_username}"
-    interpreter = ["bash", "-c"]
-    on_failure  = continue
+    publisher = local.os_image.publisher
+    offer     = local.os_image.offer
+    sku       = local.os_image.sku
+    version   = local.os_image.version
   }
 }
 

@@ -36,8 +36,8 @@ module "budget_example" {
   # General settings
   amount     = 10 # Budget limit in dollars
   time_grain = "Monthly" # BillingAnnual, BillingMonth, BillingQuarter, Annually, Monthly or Quarterly
-  start_date = "2023-08-01T00:00:00Z" # Needs to be in this format
-  end_date   = "2027-12-01T00:00:00Z" # Needs to be in this format; extend before it passes
+  start_date = "2023-08-01T00:00:00Z" # YYYY-MM-01T00:00:00Z; when extending end_date, set to the first day of the current month
+  end_date   = "2027-12-01T00:00:00Z" # YYYY-MM-01T00:00:00Z; extend before it passes (update start_date too)
 
   # Notification settings
   threshold_alert = true # Whether threshold alert is enabled
@@ -166,7 +166,7 @@ module "project_example" {
 
 Project - `project.auto.tfvars` (local file in **azure-tf-architecture**, not committed):
 
-> **Placeholders:** `203.0.113.x` addresses are [RFC 5737 documentation IPs](https://datatrfc.ietf.org/doc/html/rfc5737), not real public IPs. `your_admin_user` is an example — use a non-obvious username in your real tfvars.
+> **Placeholders:** `203.0.113.x` addresses are [RFC 5737 documentation IPs](https://datatrfc.ietf.org/doc/html/rfc5737), not real public IPs.
 
 ```terraform
 projects = {
@@ -223,7 +223,7 @@ projects = {
         subnet        = "frontend"
         public_ip     = true
         ip_allocation = "Static"
-        admin_user    = "your_admin_user"
+        admin_ssh_public_key_path = "~/.ssh/id_rsa.pub" # optional; RSA only — Azure does not support ed25519
         service_tags  = { "service" = "nginx" }
       }
     }
@@ -240,6 +240,83 @@ projects = {
 
 NSG `source_address_prefixes` for SSH and ICMP should match `firewall_allowed_ips` in **homepage-webserver-ansible** `group_vars/servers.yml`. Web traffic uses `source_address_prefix = "*"` so the site is reachable from the Internet.
 
+### Remote state (one-time setup)
+
+Terraform state is stored in Azure Blob Storage. Bootstrap once, then point Terraform at it.
+
+1. **Bootstrap storage and backend config** (from **azure-tf-architecture**):
+
+```bash
+./scripts/bootstrap-remote-state.sh --owner "Your Name"
+# or: ./scripts/bootstrap-remote-state.sh --owner "Your Name" --storage-account sdctfstate1234
+```
+
+Creates resource group `sdc-tfstate-rg` by default (`{region}-{project}-rg` when environment is `all`; `{region}-{environment}-{project}-rg` otherwise). Applies subscription-required tags (`owner`, `location`, `environment`, `project`). Writes `backend.hcl` from `backend.hcl.example`. `--owner` is required; the script prompts in a TTY if omitted.
+
+2. **Initialize** — from **azure-tf-architecture** root (after bootstrap writes `backend.hcl`):
+
+```bash
+terraform init -backend-config=backend.hcl
+# If you already have local terraform.tfstate:
+terraform init -migrate-state -backend-config=backend.hcl
+```
+
+Cost is negligible (fractions of a cent/month for a small state file).
+
+If `terraform plan` fails on resource provider registration (`Microsoft.MixedReality` etc.), **azure-tf-architecture** sets `skip_provider_registration = true` in `terraform.tf`. On a fresh subscription, register what you need manually first, for example:
+
+```bash
+az provider register --namespace Microsoft.Compute
+az provider register --namespace Microsoft.Network
+az provider register --namespace Microsoft.Storage
+```
+
+### VM image
+
+Linux VMs use **Ubuntu 24.04 LTS** with a **pinned image version** (not `latest`). Canonical’s current Azure format is `ubuntu-24_04-lts` / **`server`** SKU (the older `0001-com-ubuntu-server-noble` offer is retired in many regions). Default pin is in `project/compute/linux_vms/linux_vm/main.tf`; override per VM with `os_image` in **azure-tf-architecture** `project.auto.tfvars`.
+
+List **server** images in your region — version strings are per-SKU; a version listed under `minimal` or `ubuntu-pro` may not work for `server`:
+
+```bash
+az vm image list \
+  --publisher Canonical \
+  --offer ubuntu-24_04-lts \
+  --sku server \
+  --location swedencentral \
+  --all \
+  -o table
+```
+
+Pick a `Version` from the `server` rows only, then set it in `main.tf` or `os_image` in tfvars.
+
+**homepage-webserver-ansible** installs **PHP 8.3** (php-fpm) to match Ubuntu 24.04.
+
+**SSH keys:** Azure Linux VMs accept **RSA public keys only** (ed25519 is rejected). Default path is `~/.ssh/id_rsa.pub`; override per VM with `admin_ssh_public_key_path` in **azure-tf-architecture** `project.auto.tfvars` (e.g. `~/.ssh/id_rsa_azure.pub` if that key is RSA).
+
+Each VM gets a **random admin username and password** (SSH key auth is what you use day-to-day). After apply:
+
+```bash
+terraform output admin_user_out
+terraform output -json admin_pass_out   # sensitive
+```
+
+**VM replace fails on deallocated VM:** If `terraform apply` errors with `powerOff is not allowed` / `VM is deallocated`, the old VM was stopped in Azure while Terraform tries to power it off before destroy. Either start it, then re-plan and apply:
+
+```bash
+az vm start -g sdc-prd-homepage-rg -n sdc-prd-homepage-webserver-vm-0
+terraform plan -out tfplan
+terraform apply tfplan
+```
+
+Or delete it in Azure, refresh state, then apply (do **not** reuse a stale `tfplan` from before the failed apply):
+
+```bash
+az vm delete -g sdc-prd-homepage-rg -n sdc-prd-homepage-webserver-vm-0 --yes
+terraform refresh -backend-config=backend.hcl
+terraform plan -out tfplan
+terraform apply tfplan
+```
+
 ### Deploying
 
 ```bash
@@ -251,8 +328,8 @@ NSG `source_address_prefixes` for SSH and ICMP should match `firewall_allowed_ip
 az login
 az account set --subscription <name-or-id>
 
-# Initialize terraform (in the root of the repository)
-terraform init
+# Initialize terraform with remote backend (see Remote state above)
+terraform init -backend-config=backend.hcl
 
 # Optionally format the code and validate, that it works
 terraform fmt
@@ -263,4 +340,9 @@ terraform plan -out tfplan
 
 # If everything looks good, apply to deploy to Azure
 terraform apply tfplan
+
+# Sync homepage-webserver-ansible inventory and optional SSH config
+# (inventory: full rewrite per environment; SSH: replace terraform-managed blocks only)
+./scripts/sync-ansible-inventory.sh
+./scripts/sync-ssh-config.sh
 ```

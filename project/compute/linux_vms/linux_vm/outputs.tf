@@ -16,5 +16,22 @@ output "public_ip_out" {
 
 output "admin_pass_out" {
   sensitive = true
-  value     = "${azurerm_linux_virtual_machine.vm.name}: ${azurerm_linux_virtual_machine.vm.admin_password}"
+  value     = "${azurerm_linux_virtual_machine.vm.name}: user=${azurerm_linux_virtual_machine.vm.admin_username} password=${azurerm_linux_virtual_machine.vm.admin_password}"
+}
+
+output "admin_user_out" {
+  value = "${azurerm_linux_virtual_machine.vm.name}: ${azurerm_linux_virtual_machine.vm.admin_username}"
+}
+
+output "ansible_host_out" {
+  description = "Connection details for homepage-webserver-ansible inventory sync."
+  value = var.public_ip && azurerm_linux_virtual_machine.vm.public_ip_address != null ? {
+    vm_name        = azurerm_linux_virtual_machine.vm.name
+    public_ip      = azurerm_linux_virtual_machine.vm.public_ip_address
+    admin_user     = azurerm_linux_virtual_machine.vm.admin_username
+    environment    = lookup(var.tags, "environment", "prd")
+    service        = lookup(var.tags, "service", "")
+    ssh_host_alias = "${lookup(var.tags, "project", "vm")}-${lookup(var.tags, "service", "host")}-${lookup(var.tags, "node", "0")}"
+    ssh_identity_file = replace(pathexpand(var.admin_ssh_public_key_path), ".pub", "")
+  } : null
 }
