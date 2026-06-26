@@ -108,6 +108,11 @@ module "project" {
   # DNS
   domains = lookup(each.value, "domains", {})
 
+  # Key Vault for VM credentials
+  key_vault_enabled = lookup(each.value, "key_vault_enabled", true)
+  tenant_id         = data.azurerm_client_config.current.tenant_id
+  admin_object_id   = data.azurerm_client_config.current.object_id
+
   # Tags for everything in this architecture deployed with Terraform
   tf_tags = var.tf_tags
 }

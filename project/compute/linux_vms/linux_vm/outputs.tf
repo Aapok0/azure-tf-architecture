@@ -23,6 +23,16 @@ output "admin_user_out" {
   value = "${azurerm_linux_virtual_machine.vm.name}: ${azurerm_linux_virtual_machine.vm.admin_username}"
 }
 
+output "secrets_out" {
+  description = "Raw credentials for storing in Key Vault. Sensitive (includes the generated admin password)."
+  sensitive   = true
+  value = {
+    admin_username = azurerm_linux_virtual_machine.vm.admin_username
+    admin_password = random_password.admin_pass.result
+    ssh_public_key = trimspace(file(pathexpand(var.admin_ssh_public_key_path)))
+  }
+}
+
 output "ansible_host_out" {
   description = "Connection details for homepage-webserver-ansible inventory sync."
   value = var.public_ip && azurerm_linux_virtual_machine.vm.public_ip_address != null ? {

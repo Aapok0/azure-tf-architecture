@@ -82,7 +82,7 @@ module "location_example" {
   source = "./policy/location"
 
   # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription 
+  scope      = "sub" # rg for resource group or sub for subscription
   scope_id   = data.azurerm_subscription.current.id # rg or sub id
   scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
 
@@ -100,7 +100,7 @@ module "tags_example" {
   source = "./policy/tags"
 
   # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription 
+  scope      = "sub" # rg for resource group or sub for subscription
   scope_id   = data.azurerm_subscription.current.id # rg or sub id
   scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
   location   = var.location # Azure region for the inherited tags policy
@@ -125,7 +125,7 @@ module "sku_example" {
   source = "./policy/vm_sku"
 
   # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription 
+  scope      = "sub" # rg for resource group or sub for subscription
   scope_id   = data.azurerm_subscription.current.id # rg or sub id
   scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
 
@@ -300,6 +300,46 @@ Each VM gets a **random admin username and password** (SSH key auth is what you 
 terraform output admin_user_out
 terraform output -json admin_pass_out   # sensitive
 ```
+
+### Key Vault
+
+Each project gets a Key Vault (`{name_prefix}-kv`, e.g. `sdc-prd-homepage-kv`) using the **RBAC authorization** model. Standard SKU — cost is effectively zero for this usage. Disable per project with `key_vault_enabled = false` in the project block of `project.auto.tfvars`.
+
+Terraform stores these secrets per VM (e.g. `sdc-prd-homepage-webserver-vm-0-...`):
+
+- `<vm>-admin-username`
+- `<vm>-admin-password`
+- `<vm>-ssh-public-key`
+
+The deploying user is granted **Key Vault Administrator** (data-plane). Because RBAC role propagation can lag a few seconds, the first apply may fail writing secrets with a 403 — just re-run `terraform apply` if so.
+
+> **Secrets and state:** anything Terraform writes to Key Vault is also in the (remote, encrypted) state. Key Vault here is for convenient retrieval (any machine, no Terraform), access auditing, and RBAC delegation — not for removing secrets from state.
+
+Read secrets without Terraform:
+
+```bash
+VAULT=$(terraform output -json key_vault_name_out | jq -r '.homepage')
+az keyvault secret show --vault-name "$VAULT" --name sdc-prd-homepage-webserver-vm-0-admin-password --query value -o tsv
+```
+
+**SSH private key (added manually, on purpose):** the private key lives only on your machine and is deliberately **not** read by Terraform (that would copy it into state). Upload it out-of-band once:
+
+```bash
+az keyvault secret set --vault-name "$VAULT" \
+  --name sdc-prd-homepage-webserver-vm-0-ssh-private-key \
+  --file ~/.ssh/id_rsa_azure
+```
+
+Restore it on a new machine:
+
+```bash
+az keyvault secret show --vault-name "$VAULT" \
+  --name sdc-prd-homepage-webserver-vm-0-ssh-private-key \
+  --query value -o tsv > ~/.ssh/id_rsa_azure
+chmod 600 ~/.ssh/id_rsa_azure
+```
+
+### VM troubleshooting
 
 **VM replace fails on deallocated VM:** If `terraform apply` errors with `powerOff is not allowed` / `VM is deallocated`, the old VM was stopped in Azure while Terraform tries to power it off before destroy. Either start it, then re-plan and apply:
 

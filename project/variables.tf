@@ -65,3 +65,19 @@ variable "tf_tags" {
   type        = map(string)
   description = "Default tags to be added to all resource groups and resources."
 }
+
+variable "key_vault_enabled" {
+  type        = bool
+  description = "Whether to create a Key Vault for this project and store VM credentials in it."
+  default     = true
+}
+
+variable "tenant_id" {
+  type        = string
+  description = "Azure AD tenant ID for the Key Vault."
+}
+
+variable "admin_object_id" {
+  type        = string
+  description = "Object ID of the principal granted Key Vault Administrator (data-plane) access."
+}

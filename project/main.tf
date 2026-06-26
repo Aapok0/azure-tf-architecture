@@ -8,6 +8,19 @@ locals {
   }
 
   name_prefix = "${var.location_abbreviation[var.location]}-${var.environment}-${var.project}"
+
+  # VM credentials keyed by VM name, merged across all VM groups in the project.
+  vm_secrets = merge([for k, m in module.linux_vms : m.secrets_out]...)
+
+  # Flatten into individual Key Vault secrets. SSH private key is added out-of-band
+  # (see README) so it never passes through Terraform state.
+  kv_secrets = merge([
+    for vmname, s in local.vm_secrets : {
+      "${vmname}-admin-username" = s.admin_username
+      "${vmname}-admin-password" = s.admin_password
+      "${vmname}-ssh-public-key" = s.ssh_public_key
+    }
+  ]...)
 }
 
 # Base resources
@@ -71,6 +84,24 @@ module "linux_vms" {
 
   # Tags
   tags = merge(var.tf_tags, local.tags, lookup(each.value, "service_tags"), {})
+}
+
+# Key Vault for VM credentials
+
+module "key_vault" {
+  source = "./key_vault"
+
+  count = var.key_vault_enabled ? 1 : 0
+
+  name            = "${local.name_prefix}-kv"
+  location        = var.location
+  rg_name         = azurerm_resource_group.project_rg.name
+  tenant_id       = var.tenant_id
+  admin_object_id = var.admin_object_id
+
+  secrets = local.kv_secrets
+
+  tags = merge(var.tf_tags, local.tags)
 }
 
 # DNS zone
