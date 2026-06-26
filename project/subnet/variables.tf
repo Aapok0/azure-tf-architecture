@@ -28,6 +28,12 @@ variable "nsg_rules" {
   description = "Map of rules for the subnet's security group."
 }
 
+variable "admin_allowed_ips" {
+  type        = list(string)
+  description = "Admin source IPs injected into rules flagged admin_restricted = true (single source of truth for the SSH/ICMP allowlist)."
+  default     = []
+}
+
 variable "tags" {
   type        = map(string)
   description = "Tags to be added to all resources in the module."

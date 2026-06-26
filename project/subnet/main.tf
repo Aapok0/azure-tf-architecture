@@ -1,5 +1,19 @@
 # Subnet
 
+# Rules flagged admin_restricted get their source set from the central
+# admin_allowed_ips list, so the SSH/ICMP allowlist lives in one place.
+locals {
+  effective_nsg_rules = {
+    for k, r in var.nsg_rules : k => merge(r, {
+      source_address_prefixes = (
+        lookup(r, "admin_restricted", false)
+        ? var.admin_allowed_ips
+        : lookup(r, "source_address_prefixes", null)
+      )
+    })
+  }
+}
+
 resource "azurerm_subnet" "project_snet" {
   name                 = var.name
   resource_group_name  = var.rg_name
@@ -18,7 +32,7 @@ resource "azurerm_network_security_group" "nsg" {
 }
 
 resource "azurerm_network_security_rule" "nsg_rule" {
-  for_each                    = var.nsg_rules
+  for_each                    = local.effective_nsg_rules
   resource_group_name         = var.rg_name
   network_security_group_name = azurerm_network_security_group.nsg[0].name
 

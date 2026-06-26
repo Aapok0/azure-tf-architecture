@@ -32,9 +32,10 @@ variable "sku" {
   }
 }
 
-variable "admin_user" { # Sensitive information -> define name in a tfvars file
+variable "admin_ssh_public_key_path" {
   type        = string
-  description = "Username for the root user in the virtual machine."
+  description = "Path to the SSH public key for the VM admin user (~ expands to home). Azure Linux VMs support RSA keys only, not ed25519."
+  default     = "~/.ssh/id_rsa.pub"
 }
 
 variable "public_ip" {
@@ -44,7 +45,7 @@ variable "public_ip" {
 
 variable "allocation_method" {
   type        = string
-  description = "Public IP's allocation method: Static or Dynamic."
+  description = "Public IP allocation method: Static or Dynamic. Standard SKU requires Static."
 
   validation {
     condition = contains(
@@ -52,6 +53,25 @@ variable "allocation_method" {
       var.allocation_method
     )
     error_message = "Allowed allocation methods are Static and Dynamic."
+  }
+}
+
+variable "public_ip_sku" {
+  type        = string
+  description = "Public IP SKU. Standard is required for new addresses. If an existing Basic IP is in state, set Basic until you run: az network public-ip update -g <rg> -n <pip-name> --sku Standard"
+  default     = "Standard"
+
+  validation {
+    condition     = contains(["Basic", "Standard"], var.public_ip_sku)
+    error_message = "public_ip_sku must be Basic or Standard."
+  }
+
+  validation {
+    condition = (
+      var.public_ip_sku == "Basic" ||
+      var.allocation_method == "Static"
+    )
+    error_message = "Standard SKU public IPs require allocation_method Static."
   }
 }
 
@@ -68,4 +88,15 @@ variable "data_disk_size" {
 variable "tags" {
   type        = map(string)
   description = "Tags to be added to all resources in the module."
+}
+
+variable "os_image" {
+  type = object({
+    publisher = string
+    offer     = string
+    sku       = string
+    version   = string
+  })
+  description = "Pinned Ubuntu image (offer ubuntu-24_04-lts, sku server). Override per VM via os_image in project.auto.tfvars. List versions: az vm image list --publisher Canonical --offer ubuntu-24_04-lts --sku server --location <region> --all -o table — use a version from server rows only."
+  default     = null
 }

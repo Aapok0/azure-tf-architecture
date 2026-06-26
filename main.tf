@@ -12,8 +12,8 @@ module "sub_budget" {
   # General settings
   amount     = 10
   time_grain = "Monthly"
-  start_date = "2023-12-01T00:00:00Z"
-  end_date   = "2025-12-01T00:00:00Z"
+  start_date = "2026-06-01T00:00:00Z" # first day of current month when extending end_date
+  end_date   = "2027-12-01T00:00:00Z"
 
   # Notification settings
   threshold_alert = true
@@ -102,11 +102,19 @@ module "project" {
   vnet    = lookup(each.value, "vnet", ["10.0.0.0/26"])
   subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] } })
 
+  # Admin source IPs injected into NSG rules flagged admin_restricted
+  admin_allowed_ips = var.admin_allowed_ips
+
   # Compute resources
   vms = lookup(each.value, "vms", {})
 
   # DNS
   domains = lookup(each.value, "domains", {})
+
+  # Key Vault for VM credentials
+  key_vault_enabled = lookup(each.value, "key_vault_enabled", true)
+  tenant_id         = data.azurerm_client_config.current.tenant_id
+  admin_object_id   = data.azurerm_client_config.current.object_id
 
   # Tags for everything in this architecture deployed with Terraform
   tf_tags = var.tf_tags

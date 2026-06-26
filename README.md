@@ -1,8 +1,6 @@
 # Azure Terraform architecture for my personal projects
 
-The main purpose of this Terraform architecture is to deploy and manage the Azure resources I want to use for my personal projects. Currently main one is my homepage, which I want to host on a virtual machine with Nginx. At some point I will move on to using an app service or a container, but for now I want to work on my skills with Ansible and Nginx.
-
-The way I arranged the modules and wrote them is a compromise between of the needs of my project and wanting to write scalable code, that could fit into a larger architecture. Scalability and reusability could be improved in many ways, but I don't want to make things too complicated. This code still needs to serve my own purposes. For example, I have made some restrictions for the variables, which would need to be removed to make the code more reusable for others.
+Deploys and manages the Azure resources for my personal projects — currently my homepage, hosted on a VM running Nginx. The modules are a compromise between my own needs and writing scalable, reusable code: some variables are deliberately restricted for my use case and would need loosening to be fully general.
 
 ### Related repositories
 
@@ -10,227 +8,191 @@ The way I arranged the modules and wrote them is a compromise between of the nee
 - [Homepage version 2](https://github.com/Aapok0/homepage-bulma)
 - [Ansible for Nginx webserver](https://github.com/Aapok0/homepage-webserver-ansible)
 
-## How to use
+## How it works
 
-### Configuration
+Modules are called from the root `.tf` files. The `project` module calls its own submodules (subnet/NSG, compute, DNS, Key Vault).
 
-Modules are to generally be called in the **main.tf** or other **.tf** files in the root module. Source of the modules will reflect that. Project module has submodules, which it calls itself inside the module. The path needs to be changed, if the modules are called elsewhere.
+| Module | Purpose |
+|--------|---------|
+| `general/budget` | Budget + threshold/forecast alerts (RG, subscription or MG scope) |
+| `general/network_watcher` | Network Watcher for a region |
+| `policy/location` | Allowed-regions policy |
+| `policy/tags` | Required / inherited tag policies |
+| `policy/vm_sku` | Allowed VM SKU policy |
+| `project` | Per-project VNet, subnets + NSG, VMs, DNS and Key Vault |
 
-The files **budget.auto.tfvars** and **project.auto.tfvars** should be created to pass sensitive variables and a project variable. They are not pushed into this repository.
+Key points:
 
-#### General
+- **State** lives in Azure Blob Storage (see [Remote state](#remote-state-one-time-setup)).
+- **Secrets and project config** go in `budget.auto.tfvars` and `project.auto.tfvars` — both gitignored.
+- **VMs** run Ubuntu 24.04 LTS on a pinned image, with a random admin user/password stored in Key Vault. Azure accepts **RSA SSH keys only**.
+- **SSH is over Tailscale** — there is no public inbound SSH rule (see [Security model](#security-model-nsg--ufw--tailscale)).
 
-Budget - main.tf:
+## Configuration
+
+Create `budget.auto.tfvars` and `project.auto.tfvars` (gitignored) for sensitive values and the project definition. Module `source` paths are relative to the root module — adjust them if you call modules elsewhere.
+
+> Placeholder IPs like `203.0.113.x` below are [RFC 5737](https://datatracker.ietf.org/doc/html/rfc5737) documentation addresses — replace them.
+
+Modules scoped to a subscription or management group expect a data source in the root module:
 
 ```terraform
-data "azurerm_subscription" "current" {} # Existing subscription for this example to work
+data "azurerm_subscription" "current" {}
+```
 
+### General modules
+
+Budget:
+
+```terraform
 module "budget_example" {
   source = "./general/budget"
 
-  # Scope of the budget
-  scope    = "sub" # rg for resource group, sub for subscription or mg for management group
-  scope_id = data.azurerm_subscription.current.id # rg or sub id
-  name     = "${data.azurerm_subscription.current.display_name}-budget" # Name for the resource
+  scope    = "sub"  # rg | sub | mg
+  scope_id = data.azurerm_subscription.current.id
+  name     = "${data.azurerm_subscription.current.display_name}-budget"
 
-  # General settings
-  amount     = 10 # Budget limit in dollars
-  time_grain = "Monthly" # BillingAnnual, BillingMonth, BillingQuarter, Annually, Monthly or Quarterly
-  start_date = "2023-08-01T00:00:00Z" # Needs to be in this format
-  end_date   = "2025-08-01T00:00:00Z" # Needs to be in this format
+  amount     = 10                       # USD limit
+  time_grain = "Monthly"                # BillingMonth/Quarter/Annual or Monthly/Quarterly/Annually
+  start_date = "2023-08-01T00:00:00Z"   # YYYY-MM-01T00:00:00Z; set to first of current month when extending
+  end_date   = "2027-12-01T00:00:00Z"   # extend before it passes (bump start_date too)
 
-  # Notification settings
-  threshold_alert = true # Whether threshold alert is enabled
-  threshold       = 75.0 # Threshold percentage for alert
-  forecast_alert  = true # Whether forecast alert for exceeding 100% is enabled
-  contact_emails  = var.contact_emails # List of emails that are alerted (can be sensitive so better to use variable)
-  contact_roles   = ["Owner"] # Roles that are alerted
+  threshold_alert = true
+  threshold       = 75.0                # percent
+  forecast_alert  = true                # alert when forecast exceeds 100%
+  contact_emails  = var.contact_emails  # use a variable; can be sensitive
+  contact_roles   = ["Owner"]
 }
 ```
 
-Budget - budget.auto.tfvars
+`budget.auto.tfvars`:
 
 ```terraform
 contact_emails = ["email1@invalid.com", "email2@invalid.com"]
 ```
 
-Network Watcher - main.tf:
+Network Watcher:
 
 ```terraform
-data "azurerm_subscription" "current" {} # Existing subscription for this example to work
-
 module "nw_example" {
   source = "./general/network_watcher"
 
-  # Name and location
-  name     = "${var.location_abbreviation[var.location]}-nwatcher" # Name for the resource
-  location = var.location # Azure region for the resource
-
-  # Tags for everything in this architecture deployed with Terraform
-  tf_tags = var.tf_tags
+  name     = "${var.location_abbreviation[var.location]}-nwatcher"
+  location = var.location
+  tf_tags  = var.tf_tags
 }
 ```
 
-#### Policy
+### Policy modules
 
-Location - main.tf:
+All three share the same scope inputs (`scope` = `rg | sub`, plus `scope_id` / `scope_name`):
 
 ```terraform
-data "azurerm_subscription" "current" {} # Existing subscription for this example to work
-
 module "location_example" {
   source = "./policy/location"
 
-  # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription 
-  scope_id   = data.azurerm_subscription.current.id # rg or sub id
-  scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
+  scope      = "sub"
+  scope_id   = data.azurerm_subscription.current.id
+  scope_name = data.azurerm_subscription.current.display_name
 
-  # Locations
-  location_list = var.location_list # List of allowed Azure regions in this format
+  location_list = var.location_list  # allowed Azure regions
 }
-```
-
-Tags - main.tf:
-
-```terraform
-data "azurerm_subscription" "current" {} # Existing subscription for this example to work
 
 module "tags_example" {
   source = "./policy/tags"
 
-  # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription 
-  scope_id   = data.azurerm_subscription.current.id # rg or sub id
-  scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
-  location   = var.location # Azure region for the inherited tags policy
+  scope      = "sub"
+  scope_id   = data.azurerm_subscription.current.id
+  scope_name = data.azurerm_subscription.current.display_name
+  location   = var.location          # region for the inherited-tags policy
 
-  # Required in all resources
-  required_tags = var.required_tags # Map of tags
-
-  # Required in all resource groups
-  required_rg_tags = var.required_rg_tags # Map of tags
-
-  # Inherited from resource groups
-  inherited_tags = var.inherited_tags # Map of tags
+  required_tags    = var.required_tags      # required on all resources
+  required_rg_tags = var.required_rg_tags    # required on all resource groups
+  inherited_tags   = var.inherited_tags      # inherited from resource groups
 }
-```
-
-VM SKU - main.tf:
-
-```terraform
-data "azurerm_subscription" "current" {} # Existing subscription for this example to work
 
 module "sku_example" {
   source = "./policy/vm_sku"
 
-  # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription 
-  scope_id   = data.azurerm_subscription.current.id # rg or sub id
-  scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
+  scope      = "sub"
+  scope_id   = data.azurerm_subscription.current.id
+  scope_name = data.azurerm_subscription.current.display_name
 
-  # Sizes
-  sku_list = var.sku_list # List of allowed VM SKUs in this format
+  sku_list = var.sku_list  # allowed VM SKUs
 }
 ```
 
-#### Project
-
-Project - main.tf:
+### Project module
 
 ```terraform
 module "project_example" {
-  source = "./project"
+  source   = "./project"
+  for_each = var.projects  # from project.auto.tfvars
 
-  for_each = var.projects # Project configurations from project.auto.tfvars
-
-  # General settings
   location    = lookup(each.value, "location", "swedencentral")
   environment = lookup(each.value, "environment", "prd")
   project     = each.key
 
-  # Virtual network
   vnet    = lookup(each.value, "vnet", ["10.0.0.0/26"])
-  subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] }})
-
-  # Compute resources
-  vms = lookup(each.value, "vms", {})
-
-  # DNS
+  subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] } })
+  vms     = lookup(each.value, "vms", {})
   domains = lookup(each.value, "domains", {})
 
-  # Tags for everything in this architecture deployed with Terraform
   tf_tags = var.tf_tags
 }
 ```
 
-Project - project.auto.tfvars:
+`project.auto.tfvars` — the central project definition:
 
 ```terraform
+# Admin IP allowlist. Synced to Ansible as the UFW SSH fallback via
+# scripts/sync-firewall-allowlist.sh. Also available to any NSG rule flagged
+# admin_restricted = true (none by default — ping works over Tailscale).
+admin_allowed_ips = ["203.0.113.10"]
+
 projects = {
 
-  homepage = { # This will be the name of the project
-    location    = "westeurope" # Azure region for the project (restricted to northeurope, norwayeast, swedencentral and westeurope in variables)
-    environment = "tst" # Project environment (dev, tst or prd)
-    vnet    = ["10.0.0.0/26"] # List of address spaces in CIDR
-    subnets = { # Map of subnets with nsg rules
-      frontend = { # Name of the subnet
-        cidr = ["10.0.0.0/28"] # List of address spaces in CIDR
-        nsg_rules = { # Map of network security group rules (does not create network security group, if there are no rules)
-          ssh = {
-            name                       = "AllowSSHInBound" # Name for the rule
-            priority                   = 100 # Priority of the rule (has to be unique in nsg, lower -> higher priority)
-            direction                  = "Inbound" # Direction of traffix in the rule
-            access                     = "Allow" # Whether the rule will Allow or Deny traffic
-            protocol                   = "Tcp" # Protocol of the traffic in the rule (Tcp, Udp, Icmp, Esp, Ah or * (=any protocol))
-
-            # Use a list of strings with plural attributes and a string with singular ones ("*" for any)
-            source_address_prefixes    = var.ssh_addr_prefixes
-            source_port_range          = "*"
-            destination_address_prefix = "10.0.0.0/28"
-            destination_port_range     = "22"
-          }
+  homepage = {
+    location    = "swedencentral"
+    environment = "prd"
+    vnet        = ["10.0.0.0/26"]
+    subnets = {
+      frontend = {
+        cidr = ["10.0.0.0/28"]
+        nsg_rules = {
+          # No public SSH rule — SSH is over Tailscale. No ICMP rule — ping works
+          # over the tailnet. To restrict a rule's source to admin_allowed_ips,
+          # set admin_restricted = true on it.
           web = {
-            name                      = "AllowInternetInBound"
-            priority                  = 110
-            direction                 = "Inbound"
-            access                    = "Allow"
-            protocol                  = "Tcp"
-            source_address_prefixes   = ["123.123.123.123", "111.111.111.111"]
-            source_port_range         = "*"
-            destination_address_range = "*"
-            destination_port_ranges   = ["80", "443"]
+            name                       = "AllowInternetInBound"
+            priority                   = 110
+            direction                  = "Inbound"
+            access                     = "Allow"
+            protocol                   = "Tcp"
+            source_address_prefix      = "*"
+            source_port_range          = "*"
+            destination_address_prefix = "*"
+            destination_port_ranges    = ["80", "443"]
           }
         }
       }
     }
 
-    vms = { # Map of vms to be created
-      webserver = { # Name of the virtual machine node/nodes
-        count = 1 # Number of nodes of this virtual machine
-
-        sku   = "Standard_B1ls" # Size of the virtual machine
-        subnet        = "frontend" # Name of the subnet the nodes should use (must be configured above)
-        public_ip     = true # Whether the virtual machine has a public IP or not
-        ip_allocation = "Static" # Static or Dynamic IP
-        admin_user    = "adminuser" # Name of the admin user to be used (sensitive)
-        service_tags  = { "service" = "nginx" } # Service tags for the nodes
-
-        # Optional data disk
-        data_disk      = false # Whether the virtual machine has a data disk (true/false)
-        data_disk_size = 0 # Data disk size in GB
+    vms = {
+      webserver = {
+        count                     = 1
+        sku                       = "Standard_B1ls"
+        subnet                    = "frontend"
+        public_ip                 = true
+        ip_allocation             = "Static"
+        admin_ssh_public_key_path = "~/.ssh/id_rsa.pub"  # optional; RSA only — Azure rejects ed25519
+        service_tags              = { "service" = "nginx" }
       }
     }
 
-    domains = { # Map of domains to be create DNS zones for
-      "example.com" = { # Registered domain
-        ttl     = 1000 # Optional, Time To Live for the records. Defaults to 300.
-        records = { # Map of records to create in the DNS zone for the domain
-          "@" = { # Makes A record for root domain
-            ips = ["123.123.123.123", "111.111.111.111"] # Optional, IPs to add to the record. Defaults to project's VMs public IPs.
-          },
-          www = {} # Makes A record for www.example.com to project's VMs public IPs
-        }
+    domains = {
+      "example.com" = {
+        records = { "@" = {}, www = {} }
       }
     }
   }
@@ -238,27 +200,153 @@ projects = {
 }
 ```
 
-### Deploying
+### Security model (NSG + UFW + Tailscale)
+
+SSH is reached over a **Tailscale** tailnet, so there is **no public inbound SSH** — a changing home IP can't lock you out and port 22 is never exposed. Defense in depth:
+
+| Layer | SSH (22) | HTTP/HTTPS (80,443) | ICMP / ping | Default |
+|-------|----------|---------------------|-------------|---------|
+| **NSG** (Azure edge) | no public rule | Internet | over tailnet only | deny |
+| **UFW** (host) | `tailscale0` only | any | over tailnet only | deny incoming |
+| **Tailscale** | tailnet peers | — | tailnet peers | — |
+
+- `admin_allowed_ips` in `project.auto.tfvars` feeds any NSG rule flagged `admin_restricted = true` (none by default — SSH and ping both go over Tailscale); the subnet module injects it where used.
+- `scripts/sync-firewall-allowlist.sh` mirrors it into **homepage-webserver-ansible** `group_vars/servers/firewall_allowed_ips.yml`, used by UFW only as the SSH **fallback** (`firewall_ssh_over_tailscale_only: false`).
+- Web traffic uses `source_address_prefix = "*"` so the site is reachable from the Internet.
+- Tailscale setup (OAuth key, join, lockout-safe migration) is documented in the **homepage-webserver-ansible** README.
+
+**Fresh-host SSH bootstrap** (no permanent public SSH rule): `scripts/bootstrap-ssh-rule.sh` adds a temporary port 22 rule to every project NSG (source = `admin_allowed_ips`, or `*` if empty); `scripts/remove-ssh-rule.sh` removes it. Use them for the first connection before Tailscale is up, then remove.
+
+## Remote state (one-time setup)
+
+Terraform state is stored in Azure Blob Storage. Bootstrap once, then point Terraform at it.
+
+1. Bootstrap the storage account and backend config:
+   ```bash
+   ./scripts/bootstrap-remote-state.sh --owner "Your Name"
+   # or pin the name: --storage-account sdctfstate1234
+   ```
+   Creates resource group `sdc-tfstate-rg` (naming varies by environment), applies the subscription-required tags (`owner`, `location`, `environment`, `project`), and writes `backend.hcl` from `backend.hcl.example`. `--owner` is required (prompts in a TTY if omitted).
+
+2. Initialise against the backend:
+   ```bash
+   terraform init -backend-config=backend.hcl
+   # migrating existing local state:
+   terraform init -migrate-state -backend-config=backend.hcl
+   ```
+
+Cost is negligible (fractions of a cent per month for a small state file).
+
+> If `terraform plan` fails on resource provider registration: this stack registers only the providers it needs (`Microsoft.Authorization`, `Microsoft.Compute`, `Microsoft.Consumption`, `Microsoft.Network`) via `resource_providers_to_register` in `terraform.tf`. To register manually, set `resource_provider_registrations = "none"`, drop `resource_providers_to_register`, and run `az provider register --namespace <ns>` for each.
+
+## Deploy
+
+Requires Azure CLI and Terraform ≥ 1.5.7 (1.15.x recommended) with azurerm provider 4.x.
+
+1. Log in and select the subscription:
+   ```bash
+   az login
+   az account set --subscription <name-or-id>
+   ```
+   azurerm 4.x uses that subscription (or export `ARM_SUBSCRIPTION_ID`).
+
+2. Initialise with the remote backend (see [Remote state](#remote-state-one-time-setup)):
+   ```bash
+   terraform init -upgrade -backend-config=backend.hcl
+   ```
+
+3. Format, validate, plan and apply:
+   ```bash
+   terraform fmt -recursive
+   terraform validate
+   terraform plan -out tfplan
+   terraform apply tfplan
+   ```
+
+4. Sync the **homepage-webserver-ansible** inventory, firewall allowlist and SSH config:
+   ```bash
+   ./scripts/sync-ansible-inventory.sh
+   ./scripts/sync-firewall-allowlist.sh
+   ./scripts/sync-ssh-config.sh
+   ```
+   Inventory and SSH `HostName` default to the Tailscale node name. Before the **first** `server_init` run (Tailscale not installed yet), add `--public-ip` to both sync scripts so they target the public IP via the temporary NSG rule — see `scripts/bootstrap-ssh-rule.sh` and the ansible repo README.
+
+After apply, retrieve the generated admin credentials:
 
 ```bash
-# Requires Azure CLI and Terraform (required version 1.5.4 or any patch above that)
+terraform output admin_user_out
+terraform output -json admin_pass_out   # sensitive
+```
 
-# Clone repository and configure to your liking
+## Reference
 
-# Login to your Azure account and switch to preferred subscription, if you have multiple.
-az login
-az account set --subscription <name-or-id>
+### Continuous integration
 
-# Initialize terraform (in the root of the repository)
-terraform init
+`.github/workflows/terraform.yml` runs on pushes to `main` and on pull requests: `terraform fmt -check -recursive`, `terraform init -backend=false`, `terraform validate`. Formatting stays a local action (`terraform fmt`); CI only verifies it. No `plan`/`apply` runs in CI, so no secrets are needed.
 
-# Optionally format the code and validate, that it works
-terraform fmt
-terraform validate
+### VM image
 
-# Create a plan (I prefer using a file)
-terraform plan -out tfplan
+Linux VMs use **Ubuntu 24.04 LTS** with a **pinned image version** (not `latest`). Canonical's current Azure format is offer `ubuntu-24_04-lts` / SKU **`server`** (the older `0001-com-ubuntu-server-noble` offer is retired in many regions). The default pin is in `project/compute/linux_vms/linux_vm/main.tf`; override per VM with `os_image` in `project.auto.tfvars`.
 
-# If everything looks good, apply to deploy to Azure
-terraform apply tfplan
+List **server** images for your region (version strings are per-SKU — a version under `minimal` or `ubuntu-pro` may not exist for `server`):
+
+```bash
+az vm image list --publisher Canonical --offer ubuntu-24_04-lts --sku server \
+  --location swedencentral --all -o table
+```
+
+Pick a `Version` from the `server` rows only, then set it in `main.tf` or via `os_image`. **homepage-webserver-ansible** installs PHP 8.3 (php-fpm) to match Ubuntu 24.04.
+
+> **SSH keys:** Azure Linux VMs accept **RSA public keys only** (ed25519 is rejected). Default path is `~/.ssh/id_rsa.pub`; override per VM with `admin_ssh_public_key_path`.
+
+### Key Vault
+
+Each project gets a Key Vault (`{name_prefix}-kv`, e.g. `sdc-prd-homepage-kv`) using the **RBAC** authorization model. Standard SKU, effectively zero cost here. Disable per project with `key_vault_enabled = false`.
+
+Terraform stores these secrets per VM (e.g. `sdc-prd-homepage-webserver-vm-0-...`):
+
+- `<vm>-admin-username`
+- `<vm>-admin-password`
+- `<vm>-ssh-public-key`
+
+The deploying user is granted **Key Vault Administrator** (data-plane). RBAC propagation can lag a few seconds, so the first apply may 403 while writing secrets — just re-run `terraform apply`.
+
+> **Secrets and state:** anything Terraform writes to Key Vault is also in the (remote, encrypted) state. Key Vault here is for convenient retrieval, auditing and RBAC delegation — not for keeping secrets out of state.
+
+Read a secret without Terraform:
+
+```bash
+VAULT=$(terraform output -json key_vault_name_out | jq -r '.homepage')
+az keyvault secret show --vault-name "$VAULT" \
+  --name sdc-prd-homepage-webserver-vm-0-admin-password --query value -o tsv
+```
+
+**SSH private key (added manually, on purpose):** the private key lives only on your machine and is deliberately **not** read by Terraform (that would copy it into state). Upload it out-of-band once, and restore it on a new machine:
+
+```bash
+# upload
+az keyvault secret set --vault-name "$VAULT" \
+  --name sdc-prd-homepage-webserver-vm-0-ssh-private-key --file ~/.ssh/id_rsa_azure
+
+# restore
+az keyvault secret show --vault-name "$VAULT" \
+  --name sdc-prd-homepage-webserver-vm-0-ssh-private-key --query value -o tsv > ~/.ssh/id_rsa_azure
+chmod 600 ~/.ssh/id_rsa_azure
+```
+
+### Troubleshooting
+
+**VM replace fails on a deallocated VM** — if `terraform apply` errors with `powerOff is not allowed` / `VM is deallocated`, the old VM was stopped in Azure while Terraform tries to power it off before destroy. Either start it and re-plan:
+
+```bash
+az vm start -g sdc-prd-homepage-rg -n sdc-prd-homepage-webserver-vm-0
+terraform plan -out tfplan && terraform apply tfplan
+```
+
+Or delete it in Azure, refresh state, then apply (do **not** reuse a stale `tfplan` from before the failed apply):
+
+```bash
+az vm delete -g sdc-prd-homepage-rg -n sdc-prd-homepage-webserver-vm-0 --yes
+terraform refresh -backend-config=backend.hcl
+terraform plan -out tfplan && terraform apply tfplan
 ```

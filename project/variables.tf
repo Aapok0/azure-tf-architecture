@@ -51,6 +51,12 @@ variable "subnets" {
   description = "Map of CIDR address prefixes and security rules that are used in each subnet and it's securitu group."
 }
 
+variable "admin_allowed_ips" {
+  type        = list(string)
+  description = "Admin source IPs injected into NSG rules flagged admin_restricted = true."
+  default     = []
+}
+
 variable "vms" {
   type        = any
   description = "Map of VMs and variables needed to create them."
@@ -64,4 +70,20 @@ variable "domains" {
 variable "tf_tags" {
   type        = map(string)
   description = "Default tags to be added to all resource groups and resources."
+}
+
+variable "key_vault_enabled" {
+  type        = bool
+  description = "Whether to create a Key Vault for this project and store VM credentials in it."
+  default     = true
+}
+
+variable "tenant_id" {
+  type        = string
+  description = "Azure AD tenant ID for the Key Vault."
+}
+
+variable "admin_object_id" {
+  type        = string
+  description = "Object ID of the principal granted Key Vault Administrator (data-plane) access."
 }
