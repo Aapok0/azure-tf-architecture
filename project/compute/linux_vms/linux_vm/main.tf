@@ -18,6 +18,7 @@ resource "azurerm_public_ip" "vm_pip" {
   location            = var.location
   resource_group_name = var.rg_name
   allocation_method   = var.allocation_method
+  sku                 = var.public_ip_sku
   tags                = var.tags
 }
 

@@ -263,12 +263,13 @@ terraform init -migrate-state -backend-config=backend.hcl
 
 Cost is negligible (fractions of a cent/month for a small state file).
 
-If `terraform plan` fails on resource provider registration (`Microsoft.MixedReality` etc.), **azure-tf-architecture** sets `skip_provider_registration = true` in `terraform.tf`. On a fresh subscription, register what you need manually first, for example:
+If `terraform plan` fails on resource provider registration, **azure-tf-architecture** registers only the providers this stack needs (`Microsoft.Authorization`, `Microsoft.Compute`, `Microsoft.Consumption`, `Microsoft.Network`) via `resource_providers_to_register` in `terraform.tf`. To register manually instead, set `resource_provider_registrations = "none"` and omit `resource_providers_to_register`, then for example:
 
 ```bash
+az provider register --namespace Microsoft.Authorization
 az provider register --namespace Microsoft.Compute
+az provider register --namespace Microsoft.Consumption
 az provider register --namespace Microsoft.Network
-az provider register --namespace Microsoft.Storage
 ```
 
 ### VM image
@@ -320,16 +321,17 @@ terraform apply tfplan
 ### Deploying
 
 ```bash
-# Requires Azure CLI and Terraform (required version 1.5.4 or any patch above that)
+# Requires Azure CLI and Terraform (>= 1.5.7; 1.15.x recommended) and azurerm provider 4.x
 
 # Clone repository and configure to your liking
 
 # Login to your Azure account and switch to preferred subscription, if you have multiple.
 az login
 az account set --subscription <name-or-id>
+# azurerm 4.x uses that subscription (or export ARM_SUBSCRIPTION_ID explicitly)
 
 # Initialize terraform with remote backend (see Remote state above)
-terraform init -backend-config=backend.hcl
+terraform init -upgrade -backend-config=backend.hcl
 
 # Optionally format the code and validate, that it works
 terraform fmt

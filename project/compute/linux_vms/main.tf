@@ -20,6 +20,7 @@ module "linux_vm" {
   # Optional public IP
   public_ip         = lookup(var.details, "public_ip", false)
   allocation_method = lookup(var.details, "ip_allocation", "Static")
+  public_ip_sku     = lookup(var.details, "public_ip_sku", "Standard")
 
   # Optional data disk
   data_disk      = lookup(var.details, "data_disk", false)

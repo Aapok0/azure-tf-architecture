@@ -45,7 +45,7 @@ variable "public_ip" {
 
 variable "allocation_method" {
   type        = string
-  description = "Public IP's allocation method: Static or Dynamic."
+  description = "Public IP allocation method: Static or Dynamic. Standard SKU requires Static."
 
   validation {
     condition = contains(
@@ -53,6 +53,25 @@ variable "allocation_method" {
       var.allocation_method
     )
     error_message = "Allowed allocation methods are Static and Dynamic."
+  }
+}
+
+variable "public_ip_sku" {
+  type        = string
+  description = "Public IP SKU. Standard is required for new addresses. If an existing Basic IP is in state, set Basic until you run: az network public-ip update -g <rg> -n <pip-name> --sku Standard"
+  default     = "Standard"
+
+  validation {
+    condition     = contains(["Basic", "Standard"], var.public_ip_sku)
+    error_message = "public_ip_sku must be Basic or Standard."
+  }
+
+  validation {
+    condition = (
+      var.public_ip_sku == "Basic" ||
+      var.allocation_method == "Static"
+    )
+    error_message = "Standard SKU public IPs require allocation_method Static."
   }
 }
 
