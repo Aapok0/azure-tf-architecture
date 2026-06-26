@@ -82,7 +82,7 @@ module "location_example" {
   source = "./policy/location"
 
   # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription
+  scope      = "sub" # rg for resource group or sub for subscription 
   scope_id   = data.azurerm_subscription.current.id # rg or sub id
   scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
 
@@ -100,7 +100,7 @@ module "tags_example" {
   source = "./policy/tags"
 
   # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription
+  scope      = "sub" # rg for resource group or sub for subscription 
   scope_id   = data.azurerm_subscription.current.id # rg or sub id
   scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
   location   = var.location # Azure region for the inherited tags policy
@@ -125,7 +125,7 @@ module "sku_example" {
   source = "./policy/vm_sku"
 
   # Scope of the policies
-  scope      = "sub" # rg for resource group or sub for subscription
+  scope      = "sub" # rg for resource group or sub for subscription 
   scope_id   = data.azurerm_subscription.current.id # rg or sub id
   scope_name = data.azurerm_subscription.current.display_name # Name for the scope (used to generate resource name)
 
@@ -339,25 +339,6 @@ az keyvault secret show --vault-name "$VAULT" \
 chmod 600 ~/.ssh/id_rsa_azure
 ```
 
-### VM troubleshooting
-
-**VM replace fails on deallocated VM:** If `terraform apply` errors with `powerOff is not allowed` / `VM is deallocated`, the old VM was stopped in Azure while Terraform tries to power it off before destroy. Either start it, then re-plan and apply:
-
-```bash
-az vm start -g sdc-prd-homepage-rg -n sdc-prd-homepage-webserver-vm-0
-terraform plan -out tfplan
-terraform apply tfplan
-```
-
-Or delete it in Azure, refresh state, then apply (do **not** reuse a stale `tfplan` from before the failed apply):
-
-```bash
-az vm delete -g sdc-prd-homepage-rg -n sdc-prd-homepage-webserver-vm-0 --yes
-terraform refresh -backend-config=backend.hcl
-terraform plan -out tfplan
-terraform apply tfplan
-```
-
 ### Deploying
 
 ```bash
@@ -387,4 +368,25 @@ terraform apply tfplan
 # (inventory: full rewrite per environment; SSH: replace terraform-managed blocks only)
 ./scripts/sync-ansible-inventory.sh
 ./scripts/sync-ssh-config.sh
+```
+
+### Troubleshooting
+
+#### Apply on VM fails
+
+**VM replace fails on deallocated VM:** If `terraform apply` errors with `powerOff is not allowed` / `VM is deallocated`, the old VM was stopped in Azure while Terraform tries to power it off before destroy. Either start it, then re-plan and apply:
+
+```bash
+az vm start -g sdc-prd-homepage-rg -n sdc-prd-homepage-webserver-vm-0
+terraform plan -out tfplan
+terraform apply tfplan
+```
+
+Or delete it in Azure, refresh state, then apply (do **not** reuse a stale `tfplan` from before the failed apply):
+
+```bash
+az vm delete -g sdc-prd-homepage-rg -n sdc-prd-homepage-webserver-vm-0 --yes
+terraform refresh -backend-config=backend.hcl
+terraform plan -out tfplan
+terraform apply tfplan
 ```
