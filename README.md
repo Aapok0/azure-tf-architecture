@@ -145,8 +145,9 @@ module "project_example" {
 `project.auto.tfvars` — the central project definition:
 
 ```terraform
-# Admin IP allowlist for NSG rules flagged admin_restricted (ICMP/ping only; SSH is over
-# Tailscale). Also synced to Ansible as the UFW SSH fallback via scripts/sync-firewall-allowlist.sh.
+# Admin IP allowlist. Synced to Ansible as the UFW SSH fallback via
+# scripts/sync-firewall-allowlist.sh. Also available to any NSG rule flagged
+# admin_restricted = true (none by default — ping works over Tailscale).
 admin_allowed_ips = ["203.0.113.10"]
 
 projects = {
@@ -159,7 +160,9 @@ projects = {
       frontend = {
         cidr = ["10.0.0.0/28"]
         nsg_rules = {
-          # No public SSH rule — SSH is reached over Tailscale.
+          # No public SSH rule — SSH is over Tailscale. No ICMP rule — ping works
+          # over the tailnet. To restrict a rule's source to admin_allowed_ips,
+          # set admin_restricted = true on it.
           web = {
             name                       = "AllowInternetInBound"
             priority                   = 110
@@ -170,17 +173,6 @@ projects = {
             source_port_range          = "*"
             destination_address_prefix = "*"
             destination_port_ranges    = ["80", "443"]
-          }
-          ping = {
-            name                       = "AllowICMPInBoundFromOwnIPs"
-            priority                   = 120
-            direction                  = "Inbound"
-            access                     = "Allow"
-            protocol                   = "Icmp"
-            admin_restricted           = true  # source set from admin_allowed_ips
-            source_port_range          = "*"
-            destination_address_prefix = "*"
-            destination_port_range     = "*"
           }
         }
       }
@@ -212,13 +204,13 @@ projects = {
 
 SSH is reached over a **Tailscale** tailnet, so there is **no public inbound SSH** — a changing home IP can't lock you out and port 22 is never exposed. Defense in depth:
 
-| Layer | SSH (22) | HTTP/HTTPS (80,443) | ICMP | Default |
-|-------|----------|---------------------|------|---------|
-| **NSG** (Azure edge) | no public rule | Internet | `admin_allowed_ips` | deny |
-| **UFW** (host) | `tailscale0` only | any | (via SSH allow) | deny incoming |
-| **Tailscale** | tailnet peers | — | — | — |
+| Layer | SSH (22) | HTTP/HTTPS (80,443) | ICMP / ping | Default |
+|-------|----------|---------------------|-------------|---------|
+| **NSG** (Azure edge) | no public rule | Internet | over tailnet only | deny |
+| **UFW** (host) | `tailscale0` only | any | over tailnet only | deny incoming |
+| **Tailscale** | tailnet peers | — | tailnet peers | — |
 
-- `admin_allowed_ips` in `project.auto.tfvars` is the single source of truth for NSG rules flagged `admin_restricted = true` (currently ICMP/ping only, **not** SSH); the subnet module injects it.
+- `admin_allowed_ips` in `project.auto.tfvars` feeds any NSG rule flagged `admin_restricted = true` (none by default — SSH and ping both go over Tailscale); the subnet module injects it where used.
 - `scripts/sync-firewall-allowlist.sh` mirrors it into **homepage-webserver-ansible** `group_vars/servers/firewall_allowed_ips.yml`, used by UFW only as the SSH **fallback** (`firewall_ssh_over_tailscale_only: false`).
 - Web traffic uses `source_address_prefix = "*"` so the site is reachable from the Internet.
 - Tailscale setup (OAuth key, join, lockout-safe migration) is documented in the **homepage-webserver-ansible** README.

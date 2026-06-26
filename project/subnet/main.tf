@@ -4,11 +4,13 @@
 # admin_allowed_ips list, so the SSH/ICMP allowlist lives in one place.
 locals {
   effective_nsg_rules = {
-    for k, r in var.nsg_rules : k => (
-      lookup(r, "admin_restricted", false)
-      ? merge(r, { source_address_prefixes = var.admin_allowed_ips })
-      : r
-    )
+    for k, r in var.nsg_rules : k => merge(r, {
+      source_address_prefixes = (
+        lookup(r, "admin_restricted", false)
+        ? var.admin_allowed_ips
+        : lookup(r, "source_address_prefixes", null)
+      )
+    })
   }
 }
 
