@@ -106,3 +106,9 @@ variable "projects" {
   type        = any
   description = "Map that holds all the variables required for the project to create resource group, networks, security groups and vms."
 }
+
+variable "admin_allowed_ips" {
+  type        = list(string)
+  description = "Single source of truth for admin (SSH/ICMP) source IPs. Applied to any NSG rule flagged admin_restricted = true, and synced to Ansible firewall_allowed_ips via scripts/sync-firewall-allowlist.sh."
+  default     = []
+}

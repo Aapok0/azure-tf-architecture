@@ -51,6 +51,12 @@ variable "subnets" {
   description = "Map of CIDR address prefixes and security rules that are used in each subnet and it's securitu group."
 }
 
+variable "admin_allowed_ips" {
+  type        = list(string)
+  description = "Admin source IPs injected into NSG rules flagged admin_restricted = true."
+  default     = []
+}
+
 variable "vms" {
   type        = any
   description = "Map of VMs and variables needed to create them."

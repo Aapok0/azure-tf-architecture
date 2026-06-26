@@ -30,3 +30,13 @@ output "key_vault_uri_out" {
   description = "Key Vault URI per project."
   value       = { for k, m in module.project : k => m.key_vault_uri_out }
 }
+
+output "admin_allowed_ips_out" {
+  description = "Admin SSH/ICMP allowlist. Run scripts/sync-firewall-allowlist.sh to write it to Ansible firewall_allowed_ips."
+  value       = var.admin_allowed_ips
+}
+
+output "nsg_info_out" {
+  description = "Project NSGs (resource_group, nsg_name) for scripts/bootstrap-ssh-rule.sh and remove-ssh-rule.sh."
+  value       = flatten([for k, m in module.project : m.nsg_info_out])
+}

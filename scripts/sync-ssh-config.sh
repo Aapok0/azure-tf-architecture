@@ -4,7 +4,15 @@
 # Hosts removed from state are dropped on the next sync.
 #
 # Usage (from azure-tf-architecture root):
-#   ./scripts/sync-ssh-config.sh
+#   ./scripts/sync-ssh-config.sh                     # default: Tailscale node name
+#   ./scripts/sync-ssh-config.sh --public-ip         # use the public IP
+#   ./scripts/sync-ssh-config.sh --tailnet-suffix tailXXXX.ts.net   # MagicDNS FQDN
+#
+# IMPORTANT: before the FIRST Ansible server_init run, Tailscale is not installed
+# yet, so run with --public-ip (HostName = public IP reachable via the temporary
+# NSG rule). After Tailscale is up, run with the defaults (Tailscale node name).
+#
+# Flags override the SSH_USE_TAILSCALE / TAILNET_SUFFIX environment variables.
 #
 # Requires: terraform, jq
 
@@ -13,8 +21,32 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SSH_CONFIG="${SSH_CONFIG:-$HOME/.ssh/config}"
 IDENTITY_FILE="${IDENTITY_FILE:-}"
+# SSH goes over Tailscale, so HostName points at the tailnet node name (= the VM
+# name / OS hostname / MagicDNS name) rather than the public IP. Use --public-ip
+# (or SSH_USE_TAILSCALE=0) for the public IP, and --tailnet-suffix (or
+# TAILNET_SUFFIX) for the MagicDNS FQDN instead of the bare name.
+SSH_USE_TAILSCALE="${SSH_USE_TAILSCALE:-1}"
+TAILNET_SUFFIX="${TAILNET_SUFFIX:-}"
 MANAGED_BEGIN='# BEGIN terraform-managed:'
 MANAGED_END='# END terraform-managed:'
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --public-ip) SSH_USE_TAILSCALE=0 ;;
+    --tailscale) SSH_USE_TAILSCALE=1 ;;
+    --tailnet-suffix) SSH_USE_TAILSCALE=1; TAILNET_SUFFIX="${2:-}"; shift ;;
+    --tailnet-suffix=*) SSH_USE_TAILSCALE=1; TAILNET_SUFFIX="${1#*=}" ;;
+    -h | --help)
+      grep '^#' "$0" | grep -v '^#!' | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 trim_trailing_blank_lines() {
   local file="$1"
@@ -31,15 +63,12 @@ trim_trailing_blank_lines() {
   mv "$trimmed" "$file"
 }
 
-if ! command -v terraform >/dev/null 2>&1; then
-  echo "terraform is required." >&2
-  exit 1
-fi
-
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required." >&2
-  exit 1
-fi
+for cmd in terraform jq; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "$cmd is required." >&2
+    exit 1
+  fi
+done
 
 cd "$ROOT_DIR"
 
@@ -92,17 +121,27 @@ while IFS= read -r line; do
     identity_file="${IDENTITY_FILE:-$HOME/.ssh/id_rsa}"
   fi
 
+  if [[ "$SSH_USE_TAILSCALE" == "1" ]]; then
+    if [[ -n "$TAILNET_SUFFIX" ]]; then
+      host_name="${vm_name}.${TAILNET_SUFFIX}"
+    else
+      host_name="$vm_name"
+    fi
+  else
+    host_name="$public_ip"
+  fi
+
   {
     printf '%s\n' "${MANAGED_BEGIN} ${host_alias}"
-    echo "# ${vm_name}"
+    echo "# ${vm_name} (public IP: ${public_ip})"
     echo "Host ${host_alias}"
-    echo "    HostName ${public_ip}"
+    echo "    HostName ${host_name}"
     echo "    User ${admin_user}"
     echo "    IdentityFile ${identity_file}"
     printf '%s\n' "${MANAGED_END} ${host_alias}"
   } >>"$blocks_tmp"
 
-  echo "Synced SSH host: $host_alias ($public_ip)"
+  echo "Synced SSH host: $host_alias ($host_name)"
   added=$((added + 1))
 done < <(echo "$hosts_json" | jq -c '.[] | select(.public_ip != null and .public_ip != "")')
 

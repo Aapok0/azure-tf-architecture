@@ -102,6 +102,9 @@ module "project" {
   vnet    = lookup(each.value, "vnet", ["10.0.0.0/26"])
   subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] } })
 
+  # Admin source IPs injected into NSG rules flagged admin_restricted
+  admin_allowed_ips = var.admin_allowed_ips
+
   # Compute resources
   vms = lookup(each.value, "vms", {})
 

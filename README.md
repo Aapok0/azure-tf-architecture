@@ -169,6 +169,11 @@ Project - `project.auto.tfvars` (local file in **azure-tf-architecture**, not co
 > **Placeholders:** `203.0.113.x` addresses are [RFC 5737 documentation IPs](https://datatrfc.ietf.org/doc/html/rfc5737), not real public IPs.
 
 ```terraform
+# Admin IP allowlist for NSG rules flagged admin_restricted (ICMP/ping only;
+# SSH is over Tailscale). Also synced to Ansible as the UFW SSH fallback via
+# scripts/sync-firewall-allowlist.sh.
+admin_allowed_ips = ["203.0.113.10"]
+
 projects = {
 
   homepage = {
@@ -179,17 +184,7 @@ projects = {
       frontend = {
         cidr = ["10.0.0.0/28"]
         nsg_rules = {
-          ssh = {
-            name                       = "AllowSSHInBoundFromOwnIPs"
-            priority                   = 100
-            direction                  = "Inbound"
-            access                     = "Allow"
-            protocol                   = "Tcp"
-            source_address_prefixes    = ["203.0.113.10"] # Your home IP(s); match firewall_allowed_ips in homepage-webserver-ansible/group_vars/servers.yml
-            source_port_range          = "*"
-            destination_address_prefix = "*"
-            destination_port_range     = "22"
-          }
+          # No public SSH rule — SSH is reached over Tailscale.
           web = {
             name                       = "AllowInternetInBound"
             priority                   = 110
@@ -207,7 +202,7 @@ projects = {
             direction                  = "Inbound"
             access                     = "Allow"
             protocol                   = "Icmp"
-            source_address_prefixes    = ["203.0.113.10"]
+            admin_restricted           = true # source set from admin_allowed_ips
             source_port_range          = "*"
             destination_address_prefix = "*"
             destination_port_range     = "*"
@@ -238,7 +233,22 @@ projects = {
 }
 ```
 
-NSG `source_address_prefixes` for SSH and ICMP should match `firewall_allowed_ips` in **homepage-webserver-ansible** `group_vars/servers.yml`. Web traffic uses `source_address_prefix = "*"` so the site is reachable from the Internet.
+#### Security model (NSG + UFW + Tailscale)
+
+SSH is reached over a **Tailscale** tailnet, so there is **no public inbound SSH** at all — a changing home IP can't lock you out and port 22 is never exposed. Defense in depth:
+
+| Layer | SSH (22) | HTTP/HTTPS (80,443) | ICMP | Default |
+|-------|----------|---------------------|------|---------|
+| **NSG** (Azure edge) | no public rule | Internet | `admin_allowed_ips` | deny |
+| **UFW** (host) | `tailscale0` interface only | any | (via SSH allow) | deny incoming |
+| **Tailscale** | tailnet peers | — | — | — |
+
+- **`admin_allowed_ips`** in `project.auto.tfvars` is the single source of truth for NSG rules flagged `admin_restricted = true` (currently ICMP/ping only; **not** SSH). The subnet module injects it.
+- `scripts/sync-firewall-allowlist.sh` mirrors it into **homepage-webserver-ansible** `group_vars/servers/firewall_allowed_ips.yml`, used by UFW only as the SSH **fallback** (`firewall_ssh_over_tailscale_only: false`).
+- Tailscale setup (OAuth key, join, lockout-safe migration) is documented in the **homepage-webserver-ansible** README.
+- Web traffic uses `source_address_prefix = "*"` so the site is reachable from the Internet.
+
+**Bootstrapping SSH on a fresh host** (no permanent public SSH rule): `scripts/bootstrap-ssh-rule.sh` adds a temporary port 22 rule to every project NSG (source = `admin_allowed_ips`, or any `*` if empty), and `scripts/remove-ssh-rule.sh` removes it. Use them to make the first connection before Tailscale is up, then remove.
 
 ### Remote state (one-time setup)
 
@@ -354,8 +364,8 @@ az account set --subscription <name-or-id>
 # Initialize terraform with remote backend (see Remote state above)
 terraform init -upgrade -backend-config=backend.hcl
 
-# Optionally format the code and validate, that it works
-terraform fmt
+# Format and validate locally before committing (CI enforces both — see below)
+terraform fmt -recursive
 terraform validate
 
 # Create a plan (I prefer using a file)
@@ -364,11 +374,27 @@ terraform plan -out tfplan
 # If everything looks good, apply to deploy to Azure
 terraform apply tfplan
 
-# Sync homepage-webserver-ansible inventory and optional SSH config
-# (inventory: full rewrite per environment; SSH: replace terraform-managed blocks only)
-./scripts/sync-ansible-inventory.sh
-./scripts/sync-ssh-config.sh
+# Sync homepage-webserver-ansible inventory, firewall allowlist and optional SSH config
+# (inventory: full rewrite per environment; allowlist: from admin_allowed_ips; SSH: managed blocks only)
+# SSH/inventory default to the Tailscale node name. Before the FIRST server_init run
+# (Tailscale not installed yet), pass --public-ip so they target the public IP via the
+# temporary NSG rule (see scripts/bootstrap-ssh-rule.sh and the ansible repo README).
+./scripts/sync-ansible-inventory.sh        # add --public-ip on first run
+./scripts/sync-firewall-allowlist.sh
+./scripts/sync-ssh-config.sh               # add --public-ip on first run
 ```
+
+### Continuous integration
+
+`.github/workflows/terraform.yml` runs on every push to `main` and on pull requests:
+
+```bash
+terraform fmt -check -recursive   # enforces formatting (fails if not run locally)
+terraform init -backend=false     # no cloud credentials or remote state needed
+terraform validate
+```
+
+Formatting itself stays a local action (`terraform fmt`); CI only verifies it. No `plan`/`apply` runs in CI, so no secrets are required.
 
 ### Troubleshooting
 

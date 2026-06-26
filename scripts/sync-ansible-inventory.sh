@@ -3,8 +3,16 @@
 # Regenerates every mapped environment file; hosts not in state are removed.
 #
 # Usage (from azure-tf-architecture root):
-#   ./scripts/sync-ansible-inventory.sh
-#   ANSIBLE_REPO=../homepage-webserver-ansible ./scripts/sync-ansible-inventory.sh
+#   ./scripts/sync-ansible-inventory.sh                  # default: Tailscale node name
+#   ./scripts/sync-ansible-inventory.sh --public-ip      # use the public IP
+#   ./scripts/sync-ansible-inventory.sh --tailnet-suffix tailXXXX.ts.net  # MagicDNS FQDN
+#
+# IMPORTANT: before the FIRST Ansible server_init run, Tailscale is not installed
+# yet, so run with --public-ip (host = public IP reachable via the temporary NSG
+# rule). After Tailscale is up, run with the defaults (Tailscale node name).
+#
+# Flags override the ANSIBLE_USE_TAILSCALE / TAILNET_SUFFIX environment variables.
+# Set ANSIBLE_REPO if homepage-webserver-ansible is not a sibling directory.
 #
 # Requires: terraform, jq
 
@@ -12,6 +20,29 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ANSIBLE_REPO="${ANSIBLE_REPO:-$ROOT_DIR/../homepage-webserver-ansible}"
+# Ansible connects over Tailscale, so the inventory host is the tailnet node name
+# (= VM/MagicDNS name), not the public IP. Use --public-ip (or ANSIBLE_USE_TAILSCALE=0)
+# for the public IP, and --tailnet-suffix (or TAILNET_SUFFIX) for the MagicDNS FQDN.
+ANSIBLE_USE_TAILSCALE="${ANSIBLE_USE_TAILSCALE:-1}"
+TAILNET_SUFFIX="${TAILNET_SUFFIX:-}"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --public-ip) ANSIBLE_USE_TAILSCALE=0 ;;
+    --tailscale) ANSIBLE_USE_TAILSCALE=1 ;;
+    --tailnet-suffix) ANSIBLE_USE_TAILSCALE=1; TAILNET_SUFFIX="${2:-}"; shift ;;
+    --tailnet-suffix=*) ANSIBLE_USE_TAILSCALE=1; TAILNET_SUFFIX="${1#*=}" ;;
+    -h | --help)
+      grep '^#' "$0" | grep -v '^#!' | sed 's/^# \{0,1\}//'
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
 
 declare -A ENV_MAP=(
   [dev]=development
@@ -19,15 +50,12 @@ declare -A ENV_MAP=(
   [prd]=production
 )
 
-if ! command -v terraform >/dev/null 2>&1; then
-  echo "terraform is required." >&2
-  exit 1
-fi
-
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required." >&2
-  exit 1
-fi
+for cmd in terraform jq; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "$cmd is required." >&2
+    exit 1
+  fi
+done
 
 if [[ ! -d "$ANSIBLE_REPO" ]]; then
   echo "Ansible repo not found at: $ANSIBLE_REPO" >&2
@@ -55,9 +83,11 @@ write_inventory() {
     echo "[servers]"
   } >"$tmp"
 
-  mapfile -t server_lines < <(echo "$hosts_json" | jq -r --arg env "$env_key" '
+  mapfile -t server_lines < <(echo "$hosts_json" | jq -r \
+    --arg env "$env_key" --arg use_ts "$ANSIBLE_USE_TAILSCALE" --arg suffix "$TAILNET_SUFFIX" '
     .[] | select(.environment == $env and .public_ip != null and .public_ip != "")
-    | "\(.public_ip) ansible_user=\(.admin_user)"
+    | (if $use_ts == "1" then (.vm_name + (if $suffix != "" then "." + $suffix else "" end)) else .public_ip end) as $host
+    | "\($host) ansible_user=\(.admin_user)"
   ')
 
   if ((${#server_lines[@]})); then
@@ -71,9 +101,11 @@ write_inventory() {
     echo "[nginx]"
   } >>"$tmp"
 
-  mapfile -t nginx_lines < <(echo "$hosts_json" | jq -r --arg env "$env_key" '
+  mapfile -t nginx_lines < <(echo "$hosts_json" | jq -r \
+    --arg env "$env_key" --arg use_ts "$ANSIBLE_USE_TAILSCALE" --arg suffix "$TAILNET_SUFFIX" '
     .[] | select(.environment == $env and .service == "nginx" and .public_ip != null and .public_ip != "")
-    | "\(.public_ip) ansible_user=\(.admin_user)"
+    | (if $use_ts == "1" then (.vm_name + (if $suffix != "" then "." + $suffix else "" end)) else .public_ip end) as $host
+    | "\($host) ansible_user=\(.admin_user)"
   ')
 
   if ((${#nginx_lines[@]})); then

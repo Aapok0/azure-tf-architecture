@@ -58,7 +58,8 @@ module "subnet" {
   cidr = lookup(each.value, "cidr", null)
 
   # Security group rules (won't create anything, if there's no rules)
-  nsg_rules = lookup(each.value, "nsg_rules", {})
+  nsg_rules         = lookup(each.value, "nsg_rules", {})
+  admin_allowed_ips = var.admin_allowed_ips
 
   # Tags
   tags = merge(var.tf_tags, local.tags)
