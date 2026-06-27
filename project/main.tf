@@ -2,9 +2,9 @@
 
 locals {
   tags = {
-    location    = "${var.location}"
-    environment = "${var.environment}"
-    project     = "${var.project}"
+    location    = var.location
+    environment = var.environment
+    project     = var.project
   }
 
   name_prefix = "${var.location_abbreviation[var.location]}-${var.environment}-${var.project}"
@@ -84,7 +84,7 @@ module "linux_vms" {
   details = each.value
 
   # Tags
-  tags = merge(var.tf_tags, local.tags, lookup(each.value, "service_tags"), {})
+  tags = merge(var.tf_tags, local.tags, lookup(each.value, "service_tags", {}))
 }
 
 # Key Vault for VM credentials

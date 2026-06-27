@@ -27,7 +27,7 @@ module "linux_vm" {
   data_disk_size = lookup(var.details, "data_disk_size", 0) # GB
 
   # Tags
-  tags = merge(var.tags, { "node" = "${count.index}" })
+  tags = merge(var.tags, { "node" = tostring(count.index) })
 
   # Optional pinned OS image override
   os_image = lookup(var.details, "os_image", null)
