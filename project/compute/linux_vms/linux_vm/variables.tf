@@ -18,6 +18,12 @@ variable "subnet_id" {
   description = "ID of the virtual machine's subnet."
 }
 
+variable "log_analytics_workspace_id" {
+  type        = string
+  description = "Log Analytics workspace ID. When set, the VM gets a system-assigned identity, the Azure Monitor Agent, and a syslog data collection rule. Null disables log collection."
+  default     = null
+}
+
 variable "sku" {
   type        = string
   description = "Size of the virtual machine: Standard_B1ls, Standard_B1s or Standard_B1ms."

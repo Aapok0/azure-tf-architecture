@@ -18,6 +18,12 @@ variable "subnet_id" {
   description = "ID of the virtual machine's subnet."
 }
 
+variable "log_analytics_workspace_id" {
+  type        = string
+  description = "Log Analytics workspace ID forwarded to each VM. Null disables log collection."
+  default     = null
+}
+
 variable "details" {
   type        = any
   description = "Map of virtual machine details needed to create them."

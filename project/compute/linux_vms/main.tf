@@ -11,6 +11,9 @@ module "linux_vm" {
   rg_name   = var.rg_name
   subnet_id = var.subnet_id
 
+  # Optional log collection
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
   # Virtual machine size
   sku = lookup(var.details, "sku", "Standard_B1ls")
 
