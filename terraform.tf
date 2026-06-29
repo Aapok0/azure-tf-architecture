@@ -24,9 +24,11 @@ provider "azurerm" {
   # azurerm 4.x: register only RPs this stack uses (replaces skip_provider_registration).
   resource_provider_registrations = "none"
   resource_providers_to_register = [
+    "Microsoft.App",
     "Microsoft.Authorization",
     "Microsoft.Compute",
     "Microsoft.Consumption",
     "Microsoft.Network",
+    "Microsoft.OperationalInsights",
   ]
 }

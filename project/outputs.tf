@@ -34,6 +34,11 @@ output "key_vault_uri_out" {
   value       = var.key_vault_enabled ? module.key_vault[0].vault_uri_out : null
 }
 
+output "container_app_fqdns_out" {
+  description = "Map of Container App key to its ingress FQDN."
+  value       = { for k, m in module.container_apps : k => m.fqdn_out }
+}
+
 output "nsg_info_out" {
   description = "Project NSGs (resource_group, nsg_name) for the bootstrap SSH rule scripts."
   value = [

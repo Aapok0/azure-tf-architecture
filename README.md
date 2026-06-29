@@ -10,16 +10,17 @@ Deploys and manages the Azure resources for my personal projects — currently m
 
 ## How it works
 
-Modules are called from the root `.tf` files. The `project` module calls its own submodules (subnet/NSG, compute, DNS, Key Vault).
+Modules are called from the root `.tf` files. The `project` module calls its own submodules (subnet/NSG, compute VMs, Container Apps, DNS, Key Vault).
 
 | Module | Purpose |
 |--------|---------|
 | `general/budget` | Budget + threshold/forecast alerts (RG, subscription or MG scope) |
 | `general/network_watcher` | Network Watcher for a region |
+| `general/log_analytics` | Shared Log Analytics workspace (logs for VMs and Container Apps) |
 | `policy/location` | Allowed-regions policy |
 | `policy/tags` | Required / inherited tag policies |
 | `policy/vm_sku` | Allowed VM SKU policy |
-| `project` | Per-project VNet, subnets + NSG, VMs, DNS and Key Vault |
+| `project` | Per-project VNet, subnets + NSG, VMs, Container Apps, DNS and Key Vault |
 
 Key points:
 
@@ -83,6 +84,22 @@ module "nw_example" {
 }
 ```
 
+Log Analytics (shared workspace; create it once with `count`, then pass its ID to resources that opt in):
+
+```terraform
+module "log_analytics_example" {
+  source = "./general/log_analytics"
+
+  count = var.log_analytics_enabled ? 1 : 0
+
+  name     = "${var.location_abbreviation[var.location]}-law"
+  location = var.location
+
+  daily_quota_gb = 0.16  # ~4.96 GB/month cap (0.16 * 31); bump if needed
+  tf_tags        = var.tf_tags
+}
+```
+
 ### Policy modules
 
 All three share the same scope inputs (`scope` = `rg | sub`, plus `scope_id` / `scope_name`):
@@ -133,10 +150,14 @@ module "project_example" {
   environment = lookup(each.value, "environment", "prd")
   project     = each.key
 
-  vnet    = lookup(each.value, "vnet", ["10.0.0.0/26"])
-  subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] } })
-  vms     = lookup(each.value, "vms", {})
-  domains = lookup(each.value, "domains", {})
+  vnet           = lookup(each.value, "vnet", ["10.0.0.0/26"])
+  subnets        = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] } })
+  vms            = lookup(each.value, "vms", {})
+  container_apps = lookup(each.value, "container_apps", {})
+  domains        = lookup(each.value, "domains", {})
+
+  # Shared workspace ID; resources opt in per-resource via their log_analytics flag
+  log_analytics_workspace_id = var.log_analytics_enabled ? module.log_analytics[0].workspace_id_out : null
 
   tf_tags = var.tf_tags
 }
@@ -149,6 +170,10 @@ module "project_example" {
 # scripts/sync-firewall-allowlist.sh. Also available to any NSG rule flagged
 # admin_restricted = true (none by default — ping works over Tailscale).
 admin_allowed_ips = ["203.0.113.10"]
+
+# Create the shared subscription-level Log Analytics workspace. Compute
+# resources opt in individually via their own log_analytics flag (see below).
+log_analytics_enabled = true
 
 projects = {
 
@@ -187,6 +212,23 @@ projects = {
         ip_allocation             = "Static"
         admin_ssh_public_key_path = "~/.ssh/id_rsa.pub"  # optional; RSA only — Azure rejects ed25519
         service_tags              = { "service" = "nginx" }
+        log_analytics             = true  # optional; ship syslog to the shared workspace
+      }
+    }
+
+    # Container Apps. One or more containers per app share a replica and network
+    # namespace; min_replicas defaults to 0 (scale to zero), ingress target_port
+    # to 8080. Images are pulled from a public registry.
+    container_apps = {
+      app = {
+        log_analytics = true  # optional; send environment logs to the shared workspace
+        containers = [
+          { name = "frontend", image = "ghcr.io/owner/frontend:1.0.0" },
+          { name = "sidecar", image = "ghcr.io/owner/sidecar:1.0.0" },
+        ]
+        service_tags = { "service" = "app" }
+        # optional: revision_mode, min_replicas, max_replicas,
+        #           ingress_external, ingress_target_port, per-container cpu/memory/env
       }
     }
 
@@ -237,7 +279,7 @@ Terraform state is stored in Azure Blob Storage. Bootstrap once, then point Terr
 
 Cost is negligible (fractions of a cent per month for a small state file).
 
-> If `terraform plan` fails on resource provider registration: this stack registers only the providers it needs (`Microsoft.Authorization`, `Microsoft.Compute`, `Microsoft.Consumption`, `Microsoft.Network`) via `resource_providers_to_register` in `terraform.tf`. To register manually, set `resource_provider_registrations = "none"`, drop `resource_providers_to_register`, and run `az provider register --namespace <ns>` for each.
+> If `terraform plan` fails on resource provider registration: this stack registers only the providers it needs (`Microsoft.App`, `Microsoft.Authorization`, `Microsoft.Compute`, `Microsoft.Consumption`, `Microsoft.Network`, `Microsoft.OperationalInsights`) via `resource_providers_to_register` in `terraform.tf`. To register manually, set `resource_provider_registrations = "none"`, drop `resource_providers_to_register`, and run `az provider register --namespace <ns>` for each.
 
 ## Deploy
 
@@ -298,6 +340,21 @@ az vm image list --publisher Canonical --offer ubuntu-24_04-lts --sku server \
 Pick a `Version` from the `server` rows only, then set it in `main.tf` or via `os_image`. **homepage-webserver-ansible** installs PHP 8.3 (php-fpm) to match Ubuntu 24.04.
 
 > **SSH keys:** Azure Linux VMs accept **RSA public keys only** (ed25519 is rejected). Default path is `~/.ssh/id_rsa.pub`; override per VM with `admin_ssh_public_key_path`.
+
+### Container Apps
+
+`project/compute/container_app` creates a Consumption Container App Environment (Azure-managed network — no VNet integration or subnet) and one app per `container_apps` entry. The app runs the containers from the `containers` list in a single replica; they share a network namespace, so a sidecar reaches the primary container over `127.0.0.1`. Ingress is external on `ingress_target_port` (default 8080), and `min_replicas` defaults to 0 (scale to zero), keeping idle cost within the Container Apps free grant.
+
+Images are pulled from a public registry (GHCR), so no registry or pull credentials are managed here. The app FQDNs are exposed via the `container_app_fqdns_out` output (per-project), useful as a staging hostname before DNS cutover. Set `log_analytics = true` on an entry to send environment logs to the shared workspace.
+
+### Log Analytics
+
+One shared workspace at subscription scope (`general/log_analytics`, in its own `{abbr}-law-rg`), created only when `log_analytics_enabled = true`. Compute resources do not attach automatically — each opts in with its own `log_analytics = true` flag, and the root passes the workspace ID down.
+
+- **Container Apps** consume the workspace ID directly: the environment sets `logs_destination = "log-analytics"`.
+- **VMs** need more than an ID, so the `linux_vm` module adds, only when opted in: a system-assigned identity, the **Azure Monitor Agent** extension, and a **data collection rule** (all syslog facilities, Info and above) associated to the VM.
+
+Cost is bounded by a workspace-wide `daily_quota_gb` (default `0.16` → ~4.96 GB/month). The cap is shared across **all** sources writing to the workspace; bump it in the `general/log_analytics` module call if you enable more.
 
 ### Key Vault
 

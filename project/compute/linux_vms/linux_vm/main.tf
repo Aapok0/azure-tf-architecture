@@ -93,6 +93,15 @@ resource "azurerm_linux_virtual_machine" "vm" {
   network_interface_ids = var.public_ip ? [azurerm_network_interface.vm_nic_public[0].id] : [azurerm_network_interface.vm_nic[0].id]
   tags                  = merge(var.tags)
 
+  # The Azure Monitor Agent authenticates with the VM's system-assigned
+  # identity, so add one when log collection is enabled.
+  dynamic "identity" {
+    for_each = var.log_analytics_workspace_id != null ? [1] : []
+    content {
+      type = "SystemAssigned"
+    }
+  }
+
   admin_ssh_key {
     username   = local.admin_user
     public_key = file(pathexpand(var.admin_ssh_public_key_path))
@@ -131,4 +140,58 @@ resource "azurerm_virtual_machine_data_disk_attachment" "project_disk_att" {
   virtual_machine_id = azurerm_linux_virtual_machine.vm.id
   lun                = "1"
   caching            = "ReadWrite"
+}
+
+## (Optional) Log collection to Log Analytics via the Azure Monitor Agent
+
+# Defines which data to collect (all syslog facilities, Info and above) and the
+# workspace it lands in.
+resource "azurerm_monitor_data_collection_rule" "dcr" {
+  count               = var.log_analytics_workspace_id != null ? 1 : 0
+  name                = "${var.name}-dcr"
+  location            = var.location
+  resource_group_name = var.rg_name
+  tags                = var.tags
+
+  destinations {
+    log_analytics {
+      name                  = "law-dest"
+      workspace_resource_id = var.log_analytics_workspace_id
+    }
+  }
+
+  data_sources {
+    syslog {
+      name           = "syslog-all"
+      facility_names = ["*"]
+      log_levels     = ["Info", "Notice", "Warning", "Error", "Critical", "Alert", "Emergency"]
+      streams        = ["Microsoft-Syslog"]
+    }
+  }
+
+  data_flow {
+    streams      = ["Microsoft-Syslog"]
+    destinations = ["law-dest"]
+  }
+}
+
+# Binds the rule to this VM.
+resource "azurerm_monitor_data_collection_rule_association" "dcra" {
+  count                   = var.log_analytics_workspace_id != null ? 1 : 0
+  name                    = "${var.name}-dcra"
+  target_resource_id      = azurerm_linux_virtual_machine.vm.id
+  data_collection_rule_id = azurerm_monitor_data_collection_rule.dcr[0].id
+}
+
+# Agent that ships the collected logs; upgrades are managed by Azure.
+resource "azurerm_virtual_machine_extension" "ama" {
+  count                      = var.log_analytics_workspace_id != null ? 1 : 0
+  name                       = "AzureMonitorLinuxAgent"
+  virtual_machine_id         = azurerm_linux_virtual_machine.vm.id
+  publisher                  = "Microsoft.Azure.Monitor"
+  type                       = "AzureMonitorLinuxAgent"
+  type_handler_version       = "1.33"
+  auto_upgrade_minor_version = true
+  automatic_upgrade_enabled  = true
+  tags                       = var.tags
 }

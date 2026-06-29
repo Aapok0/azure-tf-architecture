@@ -62,6 +62,18 @@ variable "vms" {
   description = "Map of VMs and variables needed to create them."
 }
 
+variable "container_apps" {
+  type        = any
+  description = "Map of Container Apps and the settings needed to create them."
+  default     = {}
+}
+
+variable "log_analytics_workspace_id" {
+  type        = string
+  description = "Shared Log Analytics workspace ID. Compute resources opt in per-resource via their own log_analytics flag."
+  default     = null
+}
+
 variable "domains" {
   type        = any
   description = "Map of names of the project's domains, the records needed and additional settings. Used to create a DNS zone and records."

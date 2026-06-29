@@ -112,3 +112,9 @@ variable "admin_allowed_ips" {
   description = "Single source of truth for admin (SSH/ICMP) source IPs. Applied to any NSG rule flagged admin_restricted = true, and synced to Ansible firewall_allowed_ips via scripts/sync-firewall-allowlist.sh."
   default     = []
 }
+
+variable "log_analytics_enabled" {
+  type        = bool
+  description = "Whether to create the shared subscription-level Log Analytics workspace. Compute resources reference it per-resource via their own log_analytics flag."
+  default     = false
+}

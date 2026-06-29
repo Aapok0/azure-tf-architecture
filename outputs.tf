@@ -40,3 +40,13 @@ output "nsg_info_out" {
   description = "Project NSGs (resource_group, nsg_name) for scripts/bootstrap-ssh-rule.sh and remove-ssh-rule.sh."
   value       = flatten([for k, m in module.project : m.nsg_info_out])
 }
+
+output "container_app_fqdns_out" {
+  description = "Container App ingress FQDNs per project, keyed by container app name."
+  value       = { for k, m in module.project : k => m.container_app_fqdns_out }
+}
+
+output "log_analytics_workspace_id_out" {
+  description = "Shared Log Analytics workspace ID (null if disabled)."
+  value       = var.log_analytics_enabled ? module.log_analytics[0].workspace_id_out : null
+}

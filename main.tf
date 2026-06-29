@@ -35,6 +35,24 @@ module "sdc_nwatcher" {
   tf_tags = var.tf_tags
 }
 
+## Log Analytics - shared workspace
+module "log_analytics" {
+  source = "./general/log_analytics"
+
+  count = var.log_analytics_enabled ? 1 : 0
+
+  # Name and location
+  name     = "${var.location_abbreviation[var.location]}-law"
+  location = var.location
+
+  # Cap daily ingestion so a 31-day month stays under 5 GB (0.16 * 31 = 4.96).
+  # Bump this if logging hits quota consistently.
+  daily_quota_gb = 0.16
+
+  # Tags for everything in this architecture deployed with Terraform
+  tf_tags = var.tf_tags
+}
+
 ## Policies
 
 ### Allowed locations
@@ -106,7 +124,11 @@ module "project" {
   admin_allowed_ips = var.admin_allowed_ips
 
   # Compute resources
-  vms = lookup(each.value, "vms", {})
+  vms            = lookup(each.value, "vms", {})
+  container_apps = lookup(each.value, "container_apps", {})
+
+  # Shared Log Analytics workspace (compute resources opt in per-resource)
+  log_analytics_workspace_id = var.log_analytics_enabled ? module.log_analytics[0].workspace_id_out : null
 
   # DNS
   domains = lookup(each.value, "domains", {})

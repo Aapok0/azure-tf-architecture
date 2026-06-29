@@ -80,7 +80,32 @@ module "linux_vms" {
   rg_name   = azurerm_resource_group.project_rg.name
   subnet_id = lookup(module.subnet[lookup(each.value, "subnet", "default")].subnets_id_out, "0", "")
 
+  # Ship logs to the shared workspace when this VM opts in
+  log_analytics_workspace_id = lookup(each.value, "log_analytics", false) ? var.log_analytics_workspace_id : null
+
   # Virtual machine details
+  details = each.value
+
+  # Tags
+  tags = merge(var.tf_tags, local.tags, lookup(each.value, "service_tags", {}))
+}
+
+## Container Apps
+
+module "container_apps" {
+  source = "./compute/container_app"
+
+  for_each = var.container_apps
+
+  # Dependencies and info
+  name     = "${local.name_prefix}-${each.key}-ca"
+  location = azurerm_resource_group.project_rg.location
+  rg_name  = azurerm_resource_group.project_rg.name
+
+  # Ship environment logs to the shared workspace when this app opts in
+  log_analytics_workspace_id = lookup(each.value, "log_analytics", false) ? var.log_analytics_workspace_id : null
+
+  # Container app details (images, scaling, sizing)
   details = each.value
 
   # Tags
