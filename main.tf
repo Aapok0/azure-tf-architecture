@@ -44,9 +44,9 @@ module "log_analytics" {
 module "sub_allowed_locations" {
   source = "./policy/location"
 
-  scope        = "sub"
-  scope_id     = data.azurerm_subscription.current.id
-  scope_name   = data.azurerm_subscription.current.display_name
+  scope         = "sub"
+  scope_id      = data.azurerm_subscription.current.id
+  scope_name    = data.azurerm_subscription.current.display_name
   location_list = var.location_list
 }
 
@@ -82,12 +82,12 @@ module "project" {
   environment = each.value.environment
   project     = each.key
 
-  vnet    = each.value.vnet
-  subnets = each.value.subnets
+  vnet              = each.value.vnet
+  subnets           = each.value.subnets
   admin_allowed_ips = var.admin_allowed_ips
 
-  vms            = each.value.vms
-  container_apps = each.value.container_apps
+  vms                        = each.value.vms
+  container_apps             = each.value.container_apps
   log_analytics_workspace_id = var.log_analytics_enabled ? module.log_analytics[0].workspace_id_out : null
 
   domains = each.value.domains
