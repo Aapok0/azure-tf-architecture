@@ -12,8 +12,8 @@ variable "records" {
   type = map(object({
     ips = optional(list(string))
   }))
-    description = "A records keyed by record name. ips overrides the target addresses; when omitted the record points at the project VM public IPs."
-  default = {}
+  description = "A records keyed by record name. ips overrides the target addresses; when omitted the record points at the project VM public IPs."
+  default     = {}
 }
 
 variable "ttl" {
