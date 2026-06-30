@@ -1,3 +1,8 @@
+# Resource-group-scope tag policies: one assignment per tag for required
+# resource tags, required resource group tags, and tags inherited from the
+# resource group. The inherited-tags assignment uses a system-assigned identity
+# so it can write the tag when missing.
+
 # Required tags in resources
 
 resource "azurerm_resource_group_policy_assignment" "rg_required_tags_pa" {

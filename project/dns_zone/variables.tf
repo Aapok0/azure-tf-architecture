@@ -9,18 +9,23 @@ variable "rg_name" {
 }
 
 variable "records" {
-  type        = any
-  description = "Map of records and optionally their ips and ttl values."
+  type = map(object({
+    ips = optional(list(string))
+  }))
+    description = "A records keyed by record name. ips overrides the target addresses; when omitted the record points at the project VM public IPs."
+  default = {}
 }
 
 variable "ttl" {
   type        = number
   description = "The Time To Live (TTL) of the DNS records in seconds."
+  default     = 300
 }
 
 variable "vm_public_ips" {
-  type        = any
-  description = "Public ips of the vms created in the project."
+  type        = list(string)
+  description = "Public ips of the vms created in the project. Used as the default target for records without explicit ips."
+  default     = []
 }
 
 variable "tags" {

@@ -1,3 +1,8 @@
+# Project module: one resource group holding the project's virtual network and
+# subnets/NSGs, its compute (Linux VMs and Container Apps), DNS zones, and a Key
+# Vault for the generated VM credentials. Resources are named with the
+# <region-abbr>-<environment>-<project> prefix built below.
+
 # Local variables
 
 locals {
@@ -55,10 +60,10 @@ module "subnet" {
   vnet_name = azurerm_virtual_network.project_vnet.name
 
   # IP ranges
-  cidr = lookup(each.value, "cidr", null)
+  cidr = each.value.cidr
 
   # Security group rules (won't create anything, if there's no rules)
-  nsg_rules         = lookup(each.value, "nsg_rules", {})
+  nsg_rules         = each.value.nsg_rules
   admin_allowed_ips = var.admin_allowed_ips
 
   # Tags
@@ -78,16 +83,16 @@ module "linux_vms" {
   name      = "${local.name_prefix}-${each.key}-vm"
   location  = azurerm_resource_group.project_rg.location
   rg_name   = azurerm_resource_group.project_rg.name
-  subnet_id = lookup(module.subnet[lookup(each.value, "subnet", "default")].subnets_id_out, "0", "")
+  subnet_id = lookup(module.subnet[each.value.subnet].subnets_id_out, "0", "")
 
   # Ship logs to the shared workspace when this VM opts in
-  log_analytics_workspace_id = lookup(each.value, "log_analytics", false) ? var.log_analytics_workspace_id : null
+  log_analytics_workspace_id = each.value.log_analytics ? var.log_analytics_workspace_id : null
 
   # Virtual machine details
   details = each.value
 
   # Tags
-  tags = merge(var.tf_tags, local.tags, lookup(each.value, "service_tags", {}))
+  tags = merge(var.tf_tags, local.tags, each.value.service_tags)
 }
 
 ## Container Apps
@@ -103,13 +108,13 @@ module "container_apps" {
   rg_name  = azurerm_resource_group.project_rg.name
 
   # Ship environment logs to the shared workspace when this app opts in
-  log_analytics_workspace_id = lookup(each.value, "log_analytics", false) ? var.log_analytics_workspace_id : null
+  log_analytics_workspace_id = each.value.log_analytics ? var.log_analytics_workspace_id : null
 
   # Container app details (images, scaling, sizing)
   details = each.value
 
   # Tags
-  tags = merge(var.tf_tags, local.tags, lookup(each.value, "service_tags", {}))
+  tags = merge(var.tf_tags, local.tags, each.value.service_tags)
 }
 
 # Key Vault for VM credentials
@@ -142,8 +147,8 @@ module "dns_zone" {
   rg_name = azurerm_resource_group.project_rg.name
 
   # Records
-  records       = lookup(each.value, "records", {})
-  ttl           = lookup(each.value, "ttl", 300)
+  records       = each.value.records
+  ttl           = each.value.ttl
   vm_public_ips = flatten(values(module.linux_vms)[*].public_ip_out)
 
   # Tags

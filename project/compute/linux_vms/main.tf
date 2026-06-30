@@ -1,9 +1,11 @@
-# Linux VM
+# Linux VMs wrapper: fans var.details.count out into that many identical
+# linux_vm instances, naming each <name>-<index> and tagging it with its node
+# index. All other settings pass straight through to the linux_vm module.
 
 module "linux_vm" {
   source = "./linux_vm"
 
-  count = lookup(var.details, "count", 1)
+  count = var.details.count
 
   # Dependencies and info
   name      = "${var.name}-${count.index}"
@@ -15,23 +17,23 @@ module "linux_vm" {
   log_analytics_workspace_id = var.log_analytics_workspace_id
 
   # Virtual machine size
-  sku = lookup(var.details, "sku", "Standard_B1ls")
+  sku = var.details.sku
 
   # Access (admin username and password are generated per VM)
-  admin_ssh_public_key_path = lookup(var.details, "admin_ssh_public_key_path", "~/.ssh/id_rsa.pub")
+  admin_ssh_public_key_path = var.details.admin_ssh_public_key_path
 
   # Optional public IP
-  public_ip         = lookup(var.details, "public_ip", false)
-  allocation_method = lookup(var.details, "ip_allocation", "Static")
-  public_ip_sku     = lookup(var.details, "public_ip_sku", "Standard")
+  public_ip         = var.details.public_ip
+  allocation_method = var.details.ip_allocation
+  public_ip_sku     = var.details.public_ip_sku
 
   # Optional data disk
-  data_disk      = lookup(var.details, "data_disk", false)
-  data_disk_size = lookup(var.details, "data_disk_size", 0) # GB
+  data_disk      = var.details.data_disk
+  data_disk_size = var.details.data_disk_size # GB
 
   # Tags
   tags = merge(var.tags, { "node" = tostring(count.index) })
 
   # Optional pinned OS image override
-  os_image = lookup(var.details, "os_image", null)
+  os_image = var.details.os_image
 }

@@ -1,3 +1,7 @@
+# Budget module: a consumption budget with threshold and forecast notifications.
+# var.scope selects which one of the three scope-specific resources is created
+# (resource group, subscription or management group); the others are count 0.
+
 # Resource group scope
 
 ## Budget with notifications

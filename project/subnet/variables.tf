@@ -19,13 +19,29 @@ variable "vnet_name" {
 }
 
 variable "cidr" {
-  type        = list(any)
+  type        = list(string)
   description = "List of cidr ranges for the subnet."
 }
 
 variable "nsg_rules" {
-  type        = any
-  description = "Map of rules for the subnet's security group."
+  description = "NSG rules keyed by name. admin_restricted swaps the source for the central admin_allowed_ips list; the source/destination address and port fields map directly to azurerm_network_security_rule (singular or plural variants)."
+  type = map(object({
+    name                         = string
+    priority                     = number
+    direction                    = string
+    access                       = string
+    protocol                     = string
+    admin_restricted             = optional(bool, false)
+    source_address_prefix        = optional(string)
+    source_address_prefixes      = optional(list(string))
+    source_port_range            = optional(string)
+    source_port_ranges           = optional(list(string))
+    destination_address_prefix   = optional(string)
+    destination_address_prefixes = optional(list(string))
+    destination_port_range       = optional(string)
+    destination_port_ranges      = optional(list(string))
+  }))
+  default = {}
 }
 
 variable "admin_allowed_ips" {

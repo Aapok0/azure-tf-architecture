@@ -1,3 +1,7 @@
+# Key Vault module: an RBAC-authorized vault holding the project's secrets (VM
+# admin usernames/passwords/public keys). The deploying principal is granted Key
+# Vault Administrator so it can write the secrets in the same apply.
+
 # Key Vault for project secrets (RBAC authorization model)
 
 resource "azurerm_key_vault" "kv" {
