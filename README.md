@@ -146,15 +146,15 @@ module "project_example" {
   source   = "./project"
   for_each = var.projects  # from project.auto.tfvars
 
-  location    = lookup(each.value, "location", "swedencentral")
-  environment = lookup(each.value, "environment", "prd")
+  location    = each.value.location
+  environment = each.value.environment
   project     = each.key
 
-  vnet           = lookup(each.value, "vnet", ["10.0.0.0/26"])
-  subnets        = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] } })
-  vms            = lookup(each.value, "vms", {})
-  container_apps = lookup(each.value, "container_apps", {})
-  domains        = lookup(each.value, "domains", {})
+  vnet           = each.value.vnet
+  subnets        = each.value.subnets
+  vms            = each.value.vms
+  container_apps = each.value.container_apps
+  domains        = each.value.domains
 
   # Shared workspace ID; resources opt in per-resource via their log_analytics flag
   log_analytics_workspace_id = var.log_analytics_enabled ? module.log_analytics[0].workspace_id_out : null
@@ -181,6 +181,7 @@ projects = {
     location    = "swedencentral"
     environment = "prd"
     vnet        = ["10.0.0.0/26"]
+    # No vnet or subnets are created, if subnet = {}
     subnets = {
       frontend = {
         cidr = ["10.0.0.0/28"]
@@ -234,7 +235,14 @@ projects = {
 
     domains = {
       "example.com" = {
+        # Point records at the project VMs (ips default to the VM public IPs) or
+        # at explicit IPs:
         records = { "@" = {}, www = {} }
+
+        # Or host the domain on a container app instead — creates apex A / www
+        # CNAME / asuid TXT records and binds the app with a free managed
+        # certificate (defaults to hostnames ["@", "www"]):
+        # container_app = "app"
       }
     }
   }
@@ -346,6 +354,30 @@ Pick a `Version` from the `server` rows only, then set it in `main.tf` or via `o
 `project/compute/container_app` creates a Consumption Container App Environment (Azure-managed network — no VNet integration or subnet) and one app per `container_apps` entry. The app runs the containers from the `containers` list in a single replica; they share a network namespace, so a sidecar reaches the primary container over `127.0.0.1`. Ingress is external on `ingress_target_port` (default 8080), and `min_replicas` defaults to 0 (scale to zero), keeping idle cost within the Container Apps free grant.
 
 Images are pulled from a public registry (GHCR), so no registry or pull credentials are managed here. The app FQDNs are exposed via the `container_app_fqdns_out` output (per-project), useful as a staging hostname before DNS cutover. Set `log_analytics = true` on an entry to send environment logs to the shared workspace.
+
+#### Custom domains
+
+A `domains` entry with `container_app = "<app key>"` hosts that domain on the app. For each hostname (default `@` and `www`) the DNS zone gets:
+
+- apex `@` → **A** record to the environment static inbound IP;
+- `www` → **CNAME** to the app FQDN;
+- `asuid` / `asuid.<sub>` → **TXT** record with the app's domain verification ID.
+
+The app is then bound to each hostname (`azurerm_container_app_custom_domain`) and issued a free, auto-renewed **managed certificate** (`azurerm_container_app_environment_managed_certificate`). The apex validates over HTTP (an apex can't be a CNAME); subdomains validate via CNAME.
+
+Ordering matters: the verification records must exist before the binding, so the binding/certificate resources live in the project root (not the `container_app` module, which the DNS records depend on) and `depends_on` the DNS zone. Azure binds the certificate asynchronously, so its id and binding type are in `ignore_changes`. Because the binding needs DNS to resolve to the app first, expect a brief window (and a short HTTP-only period while the certificate provisions) during a live cutover — apply the DNS/binding/certificate first, confirm the certificate is active, then prune any old origin.
+
+##### Manual step: attach the certificate
+
+After `apply`, the custom domain exists but its `BindingType` is `Disabled` — the managed certificate is issued but not attached, so HTTPS on the custom hostname serves no certificate. This is a provider limitation: setting the certificate on `azurerm_container_app_custom_domain` would make it reference a certificate that itself `depends_on` the domain (a cycle, unavoidable for an apex that can't use CNAME validation), so the SNI binding is left out of Terraform via `ignore_changes` and must be done once out-of-band:
+
+```bash
+az containerapp hostname bind -g <rg> -n <app> \
+  --environment <env> \
+  --hostname <hostname> --certificate <managed-cert-name>
+```
+
+Run it per hostname (e.g. the apex and `www`). It flips the binding to `SniEnabled`; `ignore_changes` keeps a later `terraform apply` from reverting it. Verify with `az containerapp hostname list -n <app> -g <rg> -o table` (expect `SniEnabled`).
 
 ### Log Analytics
 

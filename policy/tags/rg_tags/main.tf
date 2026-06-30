@@ -3,8 +3,6 @@
 # resource group. The inherited-tags assignment uses a system-assigned identity
 # so it can write the tag when missing.
 
-# Required tags in resources
-
 resource "azurerm_resource_group_policy_assignment" "rg_required_tags_pa" {
   for_each             = var.required_tags
   name                 = "${var.scope_name}-required-tags-pa-${each.value["id"]}"
@@ -22,8 +20,6 @@ resource "azurerm_resource_group_policy_assignment" "rg_required_tags_pa" {
   PARAMETERS
 }
 
-# Required tags in resource groups
-
 resource "azurerm_resource_group_policy_assignment" "rg_required_rg_tags_pa" {
   for_each             = var.required_rg_tags
   name                 = "${var.scope_name}-required-rg-tags-pa-${each.value["id"]}"
@@ -40,8 +36,6 @@ resource "azurerm_resource_group_policy_assignment" "rg_required_rg_tags_pa" {
     }
   PARAMETERS
 }
-
-# Tags that resources inherit from resource groups
 
 resource "azurerm_resource_group_policy_assignment" "rg_inherited_rg_tags_pa" {
   for_each             = var.inherited_tags

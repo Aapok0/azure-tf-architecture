@@ -18,8 +18,6 @@ resource "azurerm_subnet" "project_snet" {
   address_prefixes     = var.cidr
 }
 
-# Network security group, security rules and association
-
 resource "azurerm_network_security_group" "nsg" {
   count               = length(var.nsg_rules) > 0 ? 1 : 0
   name                = "${var.name}-nsg"

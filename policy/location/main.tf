@@ -2,9 +2,6 @@
 # (one for resource groups, one for resources) at the chosen scope. var.scope
 # selects resource group or subscription assignments; the other set is count 0.
 
-# Resource group scope
-
-## Allowed locations for resource groups
 resource "azurerm_resource_group_policy_assignment" "rg_allowed_rg_locations_pa" {
   count                = var.scope == "rg" ? 1 : 0
   name                 = "${var.scope_name}-allowed-rg-locations-pa"
@@ -22,7 +19,6 @@ resource "azurerm_resource_group_policy_assignment" "rg_allowed_rg_locations_pa"
   PARAMETERS
 }
 
-## Allowed locations for resources
 resource "azurerm_resource_group_policy_assignment" "rg_allowed_locations_pa" {
   count                = var.scope == "rg" ? 1 : 0
   name                 = "${var.scope_name}-allowed-locations-pa"
@@ -40,9 +36,6 @@ resource "azurerm_resource_group_policy_assignment" "rg_allowed_locations_pa" {
   PARAMETERS
 }
 
-# Subscription scope
-
-## Allowed locations for resource groups
 resource "azurerm_subscription_policy_assignment" "sub_allowed_rg_locations_pa" {
   count                = var.scope == "sub" ? 1 : 0
   name                 = "${var.scope_name}-allowed-rg-locations-pa"
@@ -60,7 +53,6 @@ resource "azurerm_subscription_policy_assignment" "sub_allowed_rg_locations_pa" 
   PARAMETERS
 }
 
-## Allowed locations for resources
 resource "azurerm_subscription_policy_assignment" "sub_allowed_locations_pa" {
   count                = var.scope == "sub" ? 1 : 0
   name                 = "${var.scope_name}-allowed-locations-pa"

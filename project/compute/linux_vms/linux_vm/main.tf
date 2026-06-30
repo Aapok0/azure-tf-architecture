@@ -13,8 +13,6 @@ locals {
   os_image = var.os_image != null ? var.os_image : local.default_os_image
 }
 
-## (Optional) Public IP
-
 resource "azurerm_public_ip" "vm_pip" {
   count               = var.public_ip ? 1 : 0
   name                = "${var.name}-pip"
@@ -24,10 +22,6 @@ resource "azurerm_public_ip" "vm_pip" {
   sku                 = var.public_ip_sku
   tags                = var.tags
 }
-
-## Network interface
-
-### Non-public
 
 resource "azurerm_network_interface" "vm_nic" {
   count               = var.public_ip ? 0 : 1
@@ -43,8 +37,6 @@ resource "azurerm_network_interface" "vm_nic" {
   }
 }
 
-### Public
-
 resource "azurerm_network_interface" "vm_nic_public" {
   count               = var.public_ip ? 1 : 0
   name                = "${var.name}-nic"
@@ -59,8 +51,6 @@ resource "azurerm_network_interface" "vm_nic_public" {
     public_ip_address_id          = azurerm_public_ip.vm_pip[count.index].id
   }
 }
-
-## Random admin credentials
 
 resource "random_string" "admin_user" {
   length  = 10
@@ -84,8 +74,6 @@ resource "random_password" "admin_pass" {
   override_special = "!#$%&*()-_=+[]{}<>:?"
 }
 
-## Virtual machine
-
 resource "azurerm_linux_virtual_machine" "vm" {
   name                  = var.name
   resource_group_name   = var.rg_name
@@ -96,8 +84,6 @@ resource "azurerm_linux_virtual_machine" "vm" {
   network_interface_ids = var.public_ip ? [azurerm_network_interface.vm_nic_public[0].id] : [azurerm_network_interface.vm_nic[0].id]
   tags                  = merge(var.tags)
 
-  # The Azure Monitor Agent authenticates with the VM's system-assigned
-  # identity, so add one when log collection is enabled.
   dynamic "identity" {
     for_each = var.log_analytics_workspace_id != null ? [1] : []
     content {
@@ -124,8 +110,6 @@ resource "azurerm_linux_virtual_machine" "vm" {
   }
 }
 
-## (Optional) Data disk
-
 resource "azurerm_managed_disk" "project_vm_disk" {
   count                = var.data_disk ? 1 : 0
   name                 = "${var.name}-disk"
@@ -145,10 +129,6 @@ resource "azurerm_virtual_machine_data_disk_attachment" "project_disk_att" {
   caching            = "ReadWrite"
 }
 
-## (Optional) Log collection to Log Analytics via the Azure Monitor Agent
-
-# Defines which data to collect (all syslog facilities, Info and above) and the
-# workspace it lands in.
 resource "azurerm_monitor_data_collection_rule" "dcr" {
   count               = var.log_analytics_workspace_id != null ? 1 : 0
   name                = "${var.name}-dcr"
@@ -178,7 +158,6 @@ resource "azurerm_monitor_data_collection_rule" "dcr" {
   }
 }
 
-# Binds the rule to this VM.
 resource "azurerm_monitor_data_collection_rule_association" "dcra" {
   count                   = var.log_analytics_workspace_id != null ? 1 : 0
   name                    = "${var.name}-dcra"
@@ -186,7 +165,6 @@ resource "azurerm_monitor_data_collection_rule_association" "dcra" {
   data_collection_rule_id = azurerm_monitor_data_collection_rule.dcr[0].id
 }
 
-# Agent that ships the collected logs; upgrades are managed by Azure.
 resource "azurerm_virtual_machine_extension" "ama" {
   count                      = var.log_analytics_workspace_id != null ? 1 : 0
   name                       = "AzureMonitorLinuxAgent"

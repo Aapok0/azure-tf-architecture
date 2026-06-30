@@ -2,9 +2,6 @@
 # policy at the chosen scope. var.scope selects the resource group or
 # subscription assignment; the other is count 0.
 
-# Resource group scope
-
-## Allowed virtual machine sizes
 resource "azurerm_resource_group_policy_assignment" "rg_allowed_vm_sku_pa" {
   count                = var.scope == "rg" ? 1 : 0
   name                 = "${var.scope_name}-allowed-vm-sku-pa"
@@ -22,9 +19,6 @@ resource "azurerm_resource_group_policy_assignment" "rg_allowed_vm_sku_pa" {
   PARAMETERS
 }
 
-# Subscription scope
-
-## Allowed virtual machine sizes
 resource "azurerm_subscription_policy_assignment" "sub_allowed_vm_sku_pa" {
   count                = var.scope == "sub" ? 1 : 0
   name                 = "${var.scope_name}-allowed-vm-sku-pa"

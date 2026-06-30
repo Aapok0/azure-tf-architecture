@@ -1,6 +1,7 @@
-# DNS zone module: a public DNS zone for the domain with one A record per entry
-# in var.records. A record targets its own ips, or the project VM public IPs when
-# none are given.
+# DNS zone module: a public DNS zone plus the A, CNAME and TXT records passed in
+# by the caller. The records are agnostic to what they point at — e.g. A records
+# to server IPs, or an apex A / CNAME / asuid TXT set for a Container App custom
+# domain.
 
 resource "azurerm_dns_zone" "zone" {
   name                = var.name
@@ -10,11 +11,37 @@ resource "azurerm_dns_zone" "zone" {
 }
 
 resource "azurerm_dns_a_record" "a" {
-  for_each = var.records
+  for_each = var.a_records
 
   name                = each.key
   zone_name           = azurerm_dns_zone.zone.name
   resource_group_name = var.rg_name
   ttl                 = var.ttl
-  records             = each.value.ips != null ? each.value.ips : var.vm_public_ips
+  records             = each.value
+}
+
+resource "azurerm_dns_cname_record" "cname" {
+  for_each = var.cname_records
+
+  name                = each.key
+  zone_name           = azurerm_dns_zone.zone.name
+  resource_group_name = var.rg_name
+  ttl                 = var.ttl
+  record              = each.value
+}
+
+resource "azurerm_dns_txt_record" "txt" {
+  for_each = var.txt_records
+
+  name                = each.key
+  zone_name           = azurerm_dns_zone.zone.name
+  resource_group_name = var.rg_name
+  ttl                 = var.ttl
+
+  dynamic "record" {
+    for_each = each.value
+    content {
+      value = record.value
+    }
+  }
 }

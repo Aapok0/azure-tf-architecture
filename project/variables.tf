@@ -130,9 +130,11 @@ variable "log_analytics_workspace_id" {
 }
 
 variable "domains" {
-  description = "Domains keyed by zone name. Each creates a DNS zone with A records; a record's ips default to the project VM public IPs when omitted."
+  description = "Domains keyed by zone name. Set container_app to the key of a container_apps entry to host the domain on that app: the listed hostnames get apex A / www CNAME records to the app plus asuid TXT verification records, and the app is bound to them with a managed certificate. Otherwise records define plain A records (ips default to the project VM public IPs when omitted)."
   type = map(object({
-    ttl = optional(number, 300)
+    ttl           = optional(number, 300)
+    container_app = optional(string)
+    hostnames     = optional(list(string), ["@", "www"])
     records = optional(map(object({
       ips = optional(list(string))
     })), {})
