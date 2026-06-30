@@ -2,9 +2,6 @@
 # var.scope selects which one of the three scope-specific resources is created
 # (resource group, subscription or management group); the others are count 0.
 
-# Resource group scope
-
-## Budget with notifications
 resource "azurerm_consumption_budget_resource_group" "rg_budget" {
   count             = var.scope == "rg" ? 1 : 0
   name              = var.name
@@ -37,9 +34,6 @@ resource "azurerm_consumption_budget_resource_group" "rg_budget" {
   }
 }
 
-# Subscription scope
-
-## Budget with notifications
 resource "azurerm_consumption_budget_subscription" "sub_budget" {
   count           = var.scope == "sub" ? 1 : 0
   name            = var.name
@@ -72,9 +66,6 @@ resource "azurerm_consumption_budget_subscription" "sub_budget" {
   }
 }
 
-# Management group scope
-
-## Budget with notifications
 resource "azurerm_consumption_budget_management_group" "mg_budget" {
   count               = var.scope == "mg" ? 1 : 0
   name                = var.name

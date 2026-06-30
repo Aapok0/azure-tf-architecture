@@ -2,8 +2,6 @@
 # admin usernames/passwords/public keys). The deploying principal is granted Key
 # Vault Administrator so it can write the secrets in the same apply.
 
-# Key Vault for project secrets (RBAC authorization model)
-
 resource "azurerm_key_vault" "kv" {
   name                       = var.name
   location                   = var.location
@@ -16,7 +14,6 @@ resource "azurerm_key_vault" "kv" {
   tags                       = var.tags
 }
 
-# Data-plane access for the deploying principal (also needed to write the secrets below)
 resource "azurerm_role_assignment" "admin" {
   scope                = azurerm_key_vault.kv.id
   role_definition_name = "Key Vault Administrator"
@@ -24,13 +21,11 @@ resource "azurerm_role_assignment" "admin" {
 }
 
 resource "azurerm_key_vault_secret" "secrets" {
-  # Secret names are not sensitive (e.g. "<vm>-admin-password"); values are.
   for_each     = nonsensitive(toset(keys(var.secrets)))
   name         = each.value
   value        = var.secrets[each.value]
   key_vault_id = azurerm_key_vault.kv.id
   tags         = var.tags
 
-  # Role assignment must exist (and propagate) before data-plane writes succeed.
   depends_on = [azurerm_role_assignment.admin]
 }

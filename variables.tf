@@ -181,7 +181,9 @@ variable "projects" {
     })), {})
 
     domains = optional(map(object({
-      ttl = optional(number, 300)
+      ttl           = optional(number, 300)
+      container_app = optional(string)
+      hostnames     = optional(list(string), ["@", "www"])
       records = optional(map(object({
         ips = optional(list(string))
       })), {})

@@ -8,24 +8,28 @@ variable "rg_name" {
   description = "Resource group name DNS zone is in."
 }
 
-variable "records" {
-  type = map(object({
-    ips = optional(list(string))
-  }))
-  description = "A records keyed by record name. ips overrides the target addresses; when omitted the record points at the project VM public IPs."
-  default     = {}
-}
-
 variable "ttl" {
   type        = number
   description = "The Time To Live (TTL) of the DNS records in seconds."
   default     = 300
 }
 
-variable "vm_public_ips" {
-  type        = list(string)
-  description = "Public ips of the vms created in the project. Used as the default target for records without explicit ips."
-  default     = []
+variable "a_records" {
+  type        = map(list(string))
+  description = "A records keyed by record name (@ for apex); value is the list of target IPs."
+  default     = {}
+}
+
+variable "cname_records" {
+  type        = map(string)
+  description = "CNAME records keyed by record name; value is the alias target FQDN."
+  default     = {}
+}
+
+variable "txt_records" {
+  type        = map(list(string))
+  description = "TXT records keyed by record name (e.g. asuid, asuid.www for Container Apps domain verification); value is the list of TXT values."
+  default     = {}
 }
 
 variable "tags" {

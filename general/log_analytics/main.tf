@@ -2,8 +2,6 @@
 # compute resources across projects send logs to. daily_quota_gb caps ingestion
 # to keep the workspace within the free tier / a fixed monthly budget.
 
-# Resource group to hold the shared Log Analytics workspace
-
 resource "azurerm_resource_group" "law_rg" {
   name     = "${var.name}-rg"
   location = var.location
@@ -13,8 +11,6 @@ resource "azurerm_resource_group" "law_rg" {
     project     = "all"
   })
 }
-
-# Shared Log Analytics workspace consumed across projects (Container Apps, VMs)
 
 resource "azurerm_log_analytics_workspace" "law" {
   name                = var.name

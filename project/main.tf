@@ -3,8 +3,6 @@
 # Vault for the generated VM credentials. Resources are named with the
 # <region-abbr>-<environment>-<project> prefix built below.
 
-# Local variables
-
 locals {
   tags = {
     location    = var.location
@@ -14,11 +12,9 @@ locals {
 
   name_prefix = "${var.location_abbreviation[var.location]}-${var.environment}-${var.project}"
 
-  # VM credentials keyed by VM name, merged across all VM groups in the project.
   vm_secrets = merge([for k, m in module.linux_vms : m.secrets_out]...)
 
-  # Flatten into individual Key Vault secrets. SSH private key is added out-of-band
-  # (see README) so it never passes through Terraform state.
+  # SSH private key is added out-of-band (see README) so it never passes through state.
   kv_secrets = merge([
     for vmname, s in local.vm_secrets : {
       "${vmname}-admin-username" = s.admin_username
@@ -26,11 +22,40 @@ locals {
       "${vmname}-ssh-public-key" = s.ssh_public_key
     }
   ]...)
+
+  vm_public_ips = flatten(values(module.linux_vms)[*].public_ip_out)
+
+  domain_dns = {
+    for dk, d in var.domains : dk => d.container_app != null ? {
+      a_records = {
+        for h in d.hostnames : h => [module.container_apps[d.container_app].environment_static_ip_out]
+        if h == "@"
+      }
+      cname_records = {
+        for h in d.hostnames : h => module.container_apps[d.container_app].fqdn_out
+        if h != "@"
+      }
+      txt_records = {
+        for h in d.hostnames : (h == "@" ? "asuid" : "asuid.${h}") => [module.container_apps[d.container_app].custom_domain_verification_id_out]
+      }
+      } : {
+      a_records     = { for rk, r in d.records : rk => (r.ips != null ? r.ips : local.vm_public_ips) }
+      cname_records = {}
+      txt_records   = {}
+    }
+  }
+
+  # Apex can't be a CNAME, so it validates over HTTP; subdomains validate via CNAME.
+  container_app_domains = merge(concat([{}], [
+    for dk, d in var.domains : {
+      for h in d.hostnames : "${dk}/${h}" => {
+        container_app     = d.container_app
+        hostname          = h == "@" ? dk : "${h}.${dk}"
+        validation_method = h == "@" ? "HTTP" : "CNAME"
+      }
+    } if d.container_app != null
+  ])...)
 }
-
-# Base resources
-
-## Resource groups
 
 resource "azurerm_resource_group" "project_rg" {
   name     = "${local.name_prefix}-rg"
@@ -38,9 +63,9 @@ resource "azurerm_resource_group" "project_rg" {
   tags     = merge(var.tf_tags, local.tags)
 }
 
-## Virtual network and its subnets and security groups
-
+# Skipped when var.subnets is empty (e.g. compute on a managed network).
 resource "azurerm_virtual_network" "project_vnet" {
+  count               = length(var.subnets) > 0 ? 1 : 0
   name                = "${local.name_prefix}-vnet"
   location            = azurerm_resource_group.project_rg.location
   resource_group_name = azurerm_resource_group.project_rg.name
@@ -53,71 +78,42 @@ module "subnet" {
 
   for_each = var.subnets
 
-  # Dependencies and info
-  name      = "${local.name_prefix}-${each.key}-snet"
-  location  = var.location
-  rg_name   = azurerm_resource_group.project_rg.name
-  vnet_name = azurerm_virtual_network.project_vnet.name
-
-  # IP ranges
-  cidr = each.value.cidr
-
-  # Security group rules (won't create anything, if there's no rules)
+  name              = "${local.name_prefix}-${each.key}-snet"
+  location          = var.location
+  rg_name           = azurerm_resource_group.project_rg.name
+  vnet_name         = azurerm_virtual_network.project_vnet[0].name
+  cidr              = each.value.cidr
   nsg_rules         = each.value.nsg_rules
   admin_allowed_ips = var.admin_allowed_ips
-
-  # Tags
-  tags = merge(var.tf_tags, local.tags)
+  tags              = merge(var.tf_tags, local.tags)
 }
-
-# Compute resources
-
-## Linux VMs
 
 module "linux_vms" {
   source = "./compute/linux_vms"
 
   for_each = var.vms
 
-  # Dependencies and info
-  name      = "${local.name_prefix}-${each.key}-vm"
-  location  = azurerm_resource_group.project_rg.location
-  rg_name   = azurerm_resource_group.project_rg.name
-  subnet_id = lookup(module.subnet[each.value.subnet].subnets_id_out, "0", "")
-
-  # Ship logs to the shared workspace when this VM opts in
+  name                       = "${local.name_prefix}-${each.key}-vm"
+  location                   = azurerm_resource_group.project_rg.location
+  rg_name                    = azurerm_resource_group.project_rg.name
+  subnet_id                  = lookup(module.subnet[each.value.subnet].subnets_id_out, "0", "")
   log_analytics_workspace_id = each.value.log_analytics ? var.log_analytics_workspace_id : null
-
-  # Virtual machine details
-  details = each.value
-
-  # Tags
-  tags = merge(var.tf_tags, local.tags, each.value.service_tags)
+  details                    = each.value
+  tags                       = merge(var.tf_tags, local.tags, each.value.service_tags)
 }
-
-## Container Apps
 
 module "container_apps" {
   source = "./compute/container_app"
 
   for_each = var.container_apps
 
-  # Dependencies and info
-  name     = "${local.name_prefix}-${each.key}-ca"
-  location = azurerm_resource_group.project_rg.location
-  rg_name  = azurerm_resource_group.project_rg.name
-
-  # Ship environment logs to the shared workspace when this app opts in
+  name                       = "${local.name_prefix}-${each.key}-ca"
+  location                   = azurerm_resource_group.project_rg.location
+  rg_name                    = azurerm_resource_group.project_rg.name
   log_analytics_workspace_id = each.value.log_analytics ? var.log_analytics_workspace_id : null
-
-  # Container app details (images, scaling, sizing)
-  details = each.value
-
-  # Tags
-  tags = merge(var.tf_tags, local.tags, each.value.service_tags)
+  details                    = each.value
+  tags                       = merge(var.tf_tags, local.tags, each.value.service_tags)
 }
-
-# Key Vault for VM credentials
 
 module "key_vault" {
   source = "./key_vault"
@@ -129,28 +125,48 @@ module "key_vault" {
   rg_name         = azurerm_resource_group.project_rg.name
   tenant_id       = var.tenant_id
   admin_object_id = var.admin_object_id
-
-  secrets = local.kv_secrets
-
-  tags = merge(var.tf_tags, local.tags)
+  secrets         = local.kv_secrets
+  tags            = merge(var.tf_tags, local.tags)
 }
-
-# DNS zone
 
 module "dns_zone" {
   source = "./dns_zone"
 
   for_each = var.domains
 
-  # Dependencies and info
-  name    = each.key
-  rg_name = azurerm_resource_group.project_rg.name
-
-  # Records
-  records       = each.value.records
+  name          = each.key
+  rg_name       = azurerm_resource_group.project_rg.name
   ttl           = each.value.ttl
-  vm_public_ips = flatten(values(module.linux_vms)[*].public_ip_out)
+  a_records     = local.domain_dns[each.key].a_records
+  cname_records = local.domain_dns[each.key].cname_records
+  txt_records   = local.domain_dns[each.key].txt_records
+  tags          = merge(var.tf_tags, local.tags)
+}
 
-  # Tags
-  tags = merge(var.tf_tags, local.tags)
+# Managed cert id/binding type are in ignore_changes because Azure sets them
+# asynchronously. The cert is not attached here (cycle with the custom domain);
+# run az containerapp hostname bind once per hostname after apply — see README.
+resource "azurerm_container_app_custom_domain" "ca" {
+  for_each = local.container_app_domains
+
+  name             = each.value.hostname
+  container_app_id = module.container_apps[each.value.container_app].app_id_out
+
+  lifecycle {
+    ignore_changes = [certificate_binding_type, container_app_environment_certificate_id]
+  }
+
+  depends_on = [module.dns_zone]
+}
+
+resource "azurerm_container_app_environment_managed_certificate" "ca" {
+  for_each = local.container_app_domains
+
+  name                         = replace(each.value.hostname, ".", "-")
+  container_app_environment_id = module.container_apps[each.value.container_app].environment_id_out
+  subject_name                 = each.value.hostname
+  domain_control_validation    = each.value.validation_method
+  tags                         = merge(var.tf_tags, local.tags)
+
+  depends_on = [azurerm_container_app_custom_domain.ca]
 }
