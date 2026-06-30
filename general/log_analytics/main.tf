@@ -1,3 +1,7 @@
+# Log Analytics module: one shared workspace (in its own resource group) that
+# compute resources across projects send logs to. daily_quota_gb caps ingestion
+# to keep the workspace within the free tier / a fixed monthly budget.
+
 # Resource group to hold the shared Log Analytics workspace
 
 resource "azurerm_resource_group" "law_rg" {

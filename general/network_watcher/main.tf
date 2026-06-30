@@ -1,3 +1,7 @@
+# Network watcher module: a per-region network watcher in its own resource
+# group, tagged as shared (environment/project = all) since it serves every
+# project in the region.
+
 # Resource group to hold the network watcher
 
 resource "azurerm_resource_group" "nwatcher_rg" {

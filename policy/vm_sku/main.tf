@@ -1,3 +1,7 @@
+# Allowed VM SKUs module: assigns the built-in "allowed virtual machine SKUs"
+# policy at the chosen scope. var.scope selects the resource group or
+# subscription assignment; the other is count 0.
+
 # Resource group scope
 
 ## Allowed virtual machine sizes

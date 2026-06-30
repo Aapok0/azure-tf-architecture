@@ -112,29 +112,29 @@ module "project" {
   for_each = var.projects
 
   # General settings
-  location    = lookup(each.value, "location", "swedencentral")
-  environment = lookup(each.value, "environment", "prd")
+  location    = each.value.location
+  environment = each.value.environment
   project     = each.key
 
   # Virtual network
-  vnet    = lookup(each.value, "vnet", ["10.0.0.0/26"])
-  subnets = lookup(each.value, "subnets", { default = { cidr = ["10.0.0.0/28"] } })
+  vnet    = each.value.vnet
+  subnets = each.value.subnets
 
   # Admin source IPs injected into NSG rules flagged admin_restricted
   admin_allowed_ips = var.admin_allowed_ips
 
   # Compute resources
-  vms            = lookup(each.value, "vms", {})
-  container_apps = lookup(each.value, "container_apps", {})
+  vms            = each.value.vms
+  container_apps = each.value.container_apps
 
   # Shared Log Analytics workspace (compute resources opt in per-resource)
   log_analytics_workspace_id = var.log_analytics_enabled ? module.log_analytics[0].workspace_id_out : null
 
   # DNS
-  domains = lookup(each.value, "domains", {})
+  domains = each.value.domains
 
   # Key Vault for VM credentials
-  key_vault_enabled = lookup(each.value, "key_vault_enabled", true)
+  key_vault_enabled = each.value.key_vault_enabled
   tenant_id         = data.azurerm_client_config.current.tenant_id
   admin_object_id   = data.azurerm_client_config.current.object_id
 

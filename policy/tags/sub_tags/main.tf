@@ -1,3 +1,8 @@
+# Subscription-scope tag policies: one assignment per tag for required resource
+# tags, required resource group tags, and tags inherited from resource groups.
+# The inherited-tags assignment uses a system-assigned identity so it can write
+# the tag when missing.
+
 # Required tags in resources
 
 resource "azurerm_subscription_policy_assignment" "sub_required_tags_pa" {

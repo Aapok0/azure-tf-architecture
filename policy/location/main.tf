@@ -1,3 +1,7 @@
+# Allowed locations module: assigns the built-in "allowed locations" policies
+# (one for resource groups, one for resources) at the chosen scope. var.scope
+# selects resource group or subscription assignments; the other set is count 0.
+
 # Resource group scope
 
 ## Allowed locations for resource groups

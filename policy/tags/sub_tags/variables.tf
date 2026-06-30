@@ -14,16 +14,25 @@ variable "location" {
 }
 
 variable "required_tags" {
-  type        = map(any)
-  description = "Tags that are required in resources."
+  type = map(object({
+    id  = string
+    key = string
+  }))
+  description = "Tags that are required in resources. Keyed by tag name; id is the policy assignment suffix, key is the tag's name."
 }
 
 variable "required_rg_tags" {
-  type        = map(any)
-  description = "Tags that are required in resource groups."
+  type = map(object({
+    id  = string
+    key = string
+  }))
+  description = "Tags that are required in resource groups. Keyed by tag name; id is the policy assignment suffix, key is the tag's name."
 }
 
 variable "inherited_tags" {
-  type        = map(any)
-  description = "Tags that are inherited by resources from resource groups."
+  type = map(object({
+    id  = string
+    key = string
+  }))
+  description = "Tags that are inherited by resources from resource groups. Keyed by tag name; id is the policy assignment suffix, key is the tag's name."
 }

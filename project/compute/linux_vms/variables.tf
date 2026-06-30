@@ -25,8 +25,23 @@ variable "log_analytics_workspace_id" {
 }
 
 variable "details" {
-  type        = any
-  description = "Map of virtual machine details needed to create them."
+  description = "Virtual machine details forwarded to the linux_vm module. count controls how many identical VMs are created; the rest configure size, access, public IP, optional data disk and a pinned OS image."
+  type = object({
+    count                     = optional(number, 1)
+    sku                       = optional(string, "Standard_B1ls")
+    admin_ssh_public_key_path = optional(string, "~/.ssh/id_rsa.pub")
+    public_ip                 = optional(bool, false)
+    ip_allocation             = optional(string, "Static")
+    public_ip_sku             = optional(string, "Standard")
+    data_disk                 = optional(bool, false)
+    data_disk_size            = optional(number, 0)
+    os_image = optional(object({
+      publisher = string
+      offer     = string
+      sku       = string
+      version   = string
+    }))
+  })
 }
 
 variable "tags" {

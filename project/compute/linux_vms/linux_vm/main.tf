@@ -1,4 +1,7 @@
-# Linux VM and its dependent resources
+# Linux VM module: a single Ubuntu VM with its NIC, optional public IP and data
+# disk, and generated admin credentials. When a Log Analytics workspace is
+# provided it also gets a system-assigned identity, the Azure Monitor Agent, and
+# a syslog data collection rule wired to that workspace.
 
 locals {
   default_os_image = {

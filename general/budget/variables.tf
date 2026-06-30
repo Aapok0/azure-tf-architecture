@@ -65,11 +65,11 @@ variable "forecast_alert" {
 }
 
 variable "contact_emails" {
-  type        = list(any)
+  type        = list(string)
   description = "Emails that are notified."
 }
 
 variable "contact_roles" {
-  type        = list(any)
+  type        = list(string)
   description = "Roles that are notified."
 }
