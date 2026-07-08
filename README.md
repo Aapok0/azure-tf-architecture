@@ -25,13 +25,41 @@ Modules are called from the root `.tf` files. The `project` module calls its own
 Key points:
 
 - **State** lives in Azure Blob Storage (see [Remote state](#remote-state-one-time-setup)).
-- **Secrets and project config** go in `budget.auto.tfvars` and `project.auto.tfvars` — both gitignored.
+- **Secrets and project config** live in `budget.auto.tfvars.enc` and `project.auto.tfvars.enc` (SOPS-encrypted, committed). Plaintext `*.auto.tfvars` is gitignored — decrypt before `terraform plan/apply`.
 - **VMs** run Ubuntu 24.04 LTS on a pinned image, with a random admin user/password stored in Key Vault. Azure accepts **RSA SSH keys only**.
 - **SSH is over Tailscale** — there is no public inbound SSH rule (see [Security model](#security-model-nsg--ufw--tailscale)).
 
 ## Configuration
 
-Create `budget.auto.tfvars` and `project.auto.tfvars` (gitignored) for sensitive values and the project definition. Module `source` paths are relative to the root module — adjust them if you call modules elsewhere.
+Terraform auto-loads plaintext `budget.auto.tfvars` and `project.auto.tfvars` (gitignored). The committed copies are `*.auto.tfvars.enc`, encrypted with [SOPS](https://github.com/getsops/sops) + [age](https://github.com/FiloSottile/age).
+
+### Secrets (SOPS + age)
+
+Budget and project config are committed as SOPS-encrypted `*.auto.tfvars.enc` files. The public age key is in `.sops.yaml`. Store the matching private key outside the repo (password manager, secure backup, or similar) and install it on each machine that runs Terraform:
+
+```bash
+mkdir -p ~/.config/sops/age
+# copy private key to ~/.config/sops/age/keys.txt
+chmod 600 ~/.config/sops/age/keys.txt
+```
+
+Install `age` and `sops`, then decrypt before Terraform:
+
+```bash
+./scripts/sops-decrypt.sh
+terraform plan
+```
+
+Edit secrets in place (re-encrypts on save):
+
+```bash
+sops budget.auto.tfvars.enc
+sops project.auto.tfvars.enc
+```
+
+Or edit plaintext locally and run `./scripts/sops-encrypt.sh` before commit.
+
+Module `source` paths are relative to the root module — adjust them if you call modules elsewhere.
 
 > Placeholder IPs like `203.0.113.x` below are [RFC 5737](https://datatracker.ietf.org/doc/html/rfc5737) documentation addresses — replace them.
 

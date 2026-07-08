@@ -1,0 +1,3 @@
+creation_rules:
+  - path_regex: \.auto\.tfvars\.enc$
+    age: age1j653uj3tjln3fut0mg5vlxfz8q66390a70jd29qum04dzzkge5vs55udgn
